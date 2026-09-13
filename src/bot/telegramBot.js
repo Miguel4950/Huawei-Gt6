@@ -100,6 +100,8 @@ class HealthTelegramBot {
     // AYUDA
     const handleHelp = async (ctx) => {
       let text = `📖 *GUÍA COMPLETA DE COMANDOS DEL COACH BIOMÉTRICO*\n\n` +
+        `🤖 *Consulta Directa con IA:*\n` +
+        `• /pregunta [tu duda] - Hazle una consulta libre y puntual a tu Coach IA\n\n` +
         `🏋️ *Entrenamiento de Alto Rendimiento:*\n` +
         `• /prescripcion o /plan_hoy - Sesión del día calculada según tu recuperación, pulso y carga\n` +
         `• /acwr o /carga_entrenamiento - Ratio Agudo:Crónico de carga y prevención de lesiones\n` +
@@ -229,6 +231,38 @@ class HealthTelegramBot {
     };
     bot.command('acwr', handleAcwr);
     bot.command('carga_entrenamiento', handleAcwr);
+
+    // PREGUNTA LIBRE A LA IA
+    bot.command(['pregunta', 'ia', 'coach'], async (ctx) => {
+      const raw = ctx.message.text || '';
+      const text = raw.replace(/^\/(pregunta|ia|coach)(@\w+)?\s*/i, '').trim();
+
+      if (!text) {
+        return ctx.replyWithMarkdown('❓ *¿Qué deseas consultar a tu Coach IA?*\n\nEscribe tu duda después del comando, por ejemplo:\n• `/pregunta ¿Por qué tengo el pulso tan bajo hoy?`\n• `/pregunta ¿Puedo hacer pesas si dormí 6 horas?`');
+      }
+
+      sendTyping(ctx);
+
+      const snapshot = {
+        ultimoSueno: sleepEngine.getLatestNight(),
+        ultimoPulso: heartEngine.getLatestDayStats(),
+        ultimosPasos: activityEngine.getLatestDayStats(),
+        ultimoEntrenamiento: workoutEngine.getLatestWorkout(),
+        readiness: readinessEngine.calculateReadiness(),
+        prescripcion: crossAnalytics.getDailyPrescription(),
+        balanceAutonomo: crossAnalytics.getAutonomicBalance(),
+        edadBiologica: crossAnalytics.getBiologicalFitnessAge(),
+        cargaAcwr: crossAnalytics.calculateACWR()
+      };
+
+      try {
+        const prompt = prompts.buildConversationPrompt(text, snapshot);
+        const aiRes = await geminiCoach.generateAnalysis(prompt);
+        await sendSafeMessage(ctx, `💬 *Respuesta de tu Coach IA:*\n\n${aiRes.text}`);
+      } catch (err) {
+        await sendSafeMessage(ctx, `⚠️ Error en la consulta: ${err.message}`);
+      }
+    });
 
     // ACTIVIDAD / ENTRENAMIENTO
     const handleWorkout = async (ctx) => {
@@ -634,140 +668,43 @@ class HealthTelegramBot {
       await handleHelp(ctx);
     });
 
-    // Router inteligente de lenguaje natural y comandos
+    // Manejo de mensajes de texto normales sin barra '/' (NUNCA llama a Gemini: 0 tokens gastados)
     bot.on('text', async (ctx) => {
       const rawText = ctx.message.text;
-      if (!rawText) return;
-      const text = rawText.trim();
-      
-      // Si ya comienza con barra '/', Telegraf lo procesa con sus comandos registrados
-      if (text.startsWith('/')) return;
+      if (!rawText || rawText.startsWith('/')) return;
 
-      const lower = text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+      const lower = rawText.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
-      // 1. Saludos habituales (0 tokens gastados, respuesta inmediata <10ms con teclado)
+      // 1. Saludos habituales
       const isGreeting = ['hola', 'ola', 'buenas', 'buen dia', 'buenos dias', 'buenas tardes', 'buenas noches', 'hey', 'hello', 'hi', 'que tal', 'saludos'].includes(lower)
         || lower.match(/^(hola|ola|buenas|buen dia|hey|hi)\b/);
 
       if (isGreeting) {
-        const greetingText = `👋 *¡Hola! ¿En qué te puedo ayudar hoy?*\n\n` +
-          `Estoy conectado a tu reloj para monitorear tu recuperación y guiar tus entrenamientos.\n\n` +
-          `👇 *Selecciona una opción del menú o hazme cualquier pregunta:*`;
+        const greetingMsg = `👋 *¡Hola! Soy tu Asistente Biométrico y Coach Personal.*\n\n` +
+          `Para interactuar conmigo, por favor utiliza los comandos oficiales con barra diagonal:\n\n` +
+          `• Presiona /menu para ver todos tus reportes y botones.\n` +
+          `• Para ver tu sueño: /comodormi\n` +
+          `• Si quieres hacerme una pregunta directa con IA, escribe:\n\`/pregunta [tu duda aquí]\`\n\n` +
+          `👇 *O selecciona una opción del menú:*`;
         try {
-          return await ctx.replyWithMarkdown(greetingText, this.getMenuKeyboard());
+          return await ctx.replyWithMarkdown(greetingMsg, this.getMenuKeyboard());
         } catch (e) {
-          return await ctx.reply(greetingText.replace(/[*_`]/g, ''), this.getMenuKeyboard()).catch(() => {});
+          return await ctx.reply(greetingMsg.replace(/[*_`]/g, ''), this.getMenuKeyboard()).catch(() => {});
         }
       }
 
-      // 2. Si el usuario escribe comandos habituales o aproximaciones
-      if (['menu', 'inicio', 'start', 'opciones'].includes(lower)) {
-        return handleStart(ctx);
-      }
-      if (['ayuda', 'help', 'comandos', 'guia'].includes(lower)) {
-        return handleHelp(ctx);
-      }
-      if (['comodormi', 'sueno', 'dormi', 'dormir', 'como dormi', 'como estuvo mi sueno'].includes(lower)) {
-        return handleSleep(ctx);
-      }
-      if (['prescripcion', 'plan', 'plan hoy', 'que entreno hoy', 'entrenamiento hoy', 'rutina', 'entreno hoy'].includes(lower)) {
-        return handlePrescription(ctx);
-      }
-      if (['readiness', 'bateria', 'recuperacion', 'energia'].includes(lower)) {
-        return handleReadiness(ctx);
-      }
-      if (['corazon', 'pulso', 'frecuencia cardiaca', 'latidos'].includes(lower)) {
-        return handleHeart(ctx);
-      }
-      if (['pasos', 'caminata', 'actividad fisica', 'km', 'distancia'].includes(lower)) {
-        return handleSteps(ctx);
-      }
-      if (['acwr', 'carga', 'sobreentrenamiento', 'carga de entrenamiento'].includes(lower)) {
-        return handleAcwr(ctx);
-      }
-      if (['autonomo', 'tono vagal', 'estres', 'nervio vago', 'sistema autonomo'].includes(lower)) {
-        return handleAutonomic(ctx);
-      }
-      if (['edad biologica', 'longevidad', 'edad'].includes(lower)) {
-        return handleBiologicalAge(ctx);
-      }
-      if (['fases', 'fases de sueno', 'rem', 'profundo'].includes(lower)) {
-        const sleep = sleepEngine.getLatestNight();
-        return sendSafeMessage(ctx, formatters.formatSleepSummary(sleep, ''));
-      }
-      if (['zonas', 'zonas cardiacas'].includes(lower)) {
-        const heart = heartEngine.getLatestDayStats();
-        return sendSafeMessage(ctx, formatters.formatHeartReport(heart, heartEngine.getRhrTrend(), ''));
-      }
-      if (['hoy', 'resumen hoy', 'tablero', 'dia'].includes(lower)) {
-        ctx.message.text = '/hoy';
-        return bot.handleUpdate({ message: { chat: ctx.chat, text: '/hoy' } });
-      }
-      if (['semanal', 'resumen semanal', 'informe semanal'].includes(lower)) {
-        ctx.message.text = '/semanal';
-        return bot.handleUpdate({ message: { chat: ctx.chat, text: '/semanal' } });
-      }
-      if (['presupuesto', 'saldo', 'tokens', 'costo'].includes(lower)) {
-        ctx.message.text = '/presupuesto';
-        return bot.handleUpdate({ message: { chat: ctx.chat, text: '/presupuesto' } });
-      }
-
-      // 🛡️ FILTRO ANTI-ERRORES TIPOGRÁFICOS (0 Tokens gastados)
-      // Si el usuario escribió un typo de un comando (ej: "comodromi", "bateris", "prescrip") o una sola palabra suelta que no es una pregunta:
-      const isTypoOfSleep = lower.includes('comod') || lower.includes('dromi') || lower.includes('suen');
-      const isTypoOfPrescription = lower.includes('presc') || lower.includes('entren');
-      const isTypoOfReadiness = lower.includes('bater') || lower.includes('readi') || lower.includes('recup');
-      const isTypoOfHeart = lower.includes('coraz') || lower.includes('puls');
-
-      if (isTypoOfSleep) {
-        return ctx.replyWithMarkdown('💡 ¿Quisiste decir */comodormi*? Escríbelo con la barra o pulsa aquí: /comodormi');
-      }
-      if (isTypoOfPrescription) {
-        return ctx.replyWithMarkdown('💡 ¿Quisiste consultar tu entrenamiento de hoy? Usa /prescripcion o /menu.');
-      }
-      if (isTypoOfReadiness) {
-        return ctx.replyWithMarkdown('💡 ¿Quisiste ver tu batería corporal? Usa /readiness o /menu.');
-      }
-      if (isTypoOfHeart) {
-        return ctx.replyWithMarkdown('💡 ¿Quisiste ver tus datos cardíacos? Usa /corazon o /menu.');
-      }
-
-      // Validación de si es una pregunta real en lenguaje natural
-      const hasQuestionMark = text.includes('?') || text.includes('¿');
-      const questionKeywords = ['como', 'que', 'por que', 'porque', 'cuando', 'donde', 'cual', 'cuanto', 'puedo', 'debo', 'explicame', 'dime', 'analiza', 'revisa', 'recomiendas', 'siento'];
-      const hasQuestionWord = questionKeywords.some(kw => lower.includes(kw));
-      const wordCount = text.split(/\s+/).length;
-
-      // Si es una sola palabra suelta no reconocida o texto muy corto sin sentido de pregunta, NO llamamos a Gemini para no malgastar tokens
-      if (wordCount === 1 && !hasQuestionMark) {
-        return ctx.replyWithMarkdown(`🤔 No reconocí la palabra *"${text}"* como un comando.\n\nUsa /menu para ver la lista de opciones o hazme una pregunta completa (ej: *¿Puedo entrenar hoy?*).`);
-      }
-
-      if (!hasQuestionMark && !hasQuestionWord && wordCount < 3) {
-        return ctx.replyWithMarkdown('🤔 Para consultar a tu Coach IA, hazme una pregunta directa (ej: *¿cómo dormí anoche?* o *¿por qué mi pulso está en 45 bpm?*), o pulsa /menu.');
-      }
-
-      // 3. Pregunta específica del usuario en lenguaje natural validada
-      sendTyping(ctx);
-
-      const snapshot = {
-        ultimoSueno: sleepEngine.getLatestNight(),
-        ultimoPulso: heartEngine.getLatestDayStats(),
-        ultimosPasos: activityEngine.getLatestDayStats(),
-        ultimoEntrenamiento: workoutEngine.getLatestWorkout(),
-        readiness: readinessEngine.calculateReadiness(),
-        prescripcion: crossAnalytics.getDailyPrescription(),
-        balanceAutonomo: crossAnalytics.getAutonomicBalance(),
-        edadBiologica: crossAnalytics.getBiologicalFitnessAge(),
-        cargaAcwr: crossAnalytics.calculateACWR()
-      };
+      // 2. Cualquier otro texto o typo (ej: "comodromi", "dormir", etc.)
+      const infoMsg = `ℹ️ *Comando no reconocido: "${rawText.trim()}"*\n\n` +
+        `En este bot todos los comandos inician con barra diagonal */*.\n\n` +
+        `• Para ver todas las opciones: /menu\n` +
+        `• Para ver tu sueño: /comodormi\n` +
+        `• Para consultar a la IA: \`/pregunta [tu duda aquí]\`\n\n` +
+        `👇 *O presiona un botón del menú:*`;
 
       try {
-        const prompt = prompts.buildConversationPrompt(text, snapshot);
-        const aiRes = await geminiCoach.generateAnalysis(prompt);
-        await sendSafeMessage(ctx, `💬 *Respuesta de tu Coach:*\n\n${aiRes.text}`);
-      } catch (err) {
-        await sendSafeMessage(ctx, `⚠️ No pude procesar la consulta con IA: ${err.message}`);
+        await ctx.replyWithMarkdown(infoMsg, this.getMenuKeyboard());
+      } catch (e) {
+        await ctx.reply(infoMsg.replace(/[*_`]/g, ''), this.getMenuKeyboard()).catch(() => {});
       }
     });
   }
