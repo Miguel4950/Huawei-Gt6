@@ -660,7 +660,7 @@ class HealthTelegramBot {
         }
       }
 
-      // 2. Si el usuario escribe el nombre de un comando sin la barra '/'
+      // 2. Si el usuario escribe comandos habituales o aproximaciones
       if (['menu', 'inicio', 'start', 'opciones'].includes(lower)) {
         return handleStart(ctx);
       }
@@ -712,7 +712,42 @@ class HealthTelegramBot {
         return bot.handleUpdate({ message: { chat: ctx.chat, text: '/presupuesto' } });
       }
 
-      // 3. Pregunta específica del usuario en lenguaje natural
+      // 🛡️ FILTRO ANTI-ERRORES TIPOGRÁFICOS (0 Tokens gastados)
+      // Si el usuario escribió un typo de un comando (ej: "comodromi", "bateris", "prescrip") o una sola palabra suelta que no es una pregunta:
+      const isTypoOfSleep = lower.includes('comod') || lower.includes('dromi') || lower.includes('suen');
+      const isTypoOfPrescription = lower.includes('presc') || lower.includes('entren');
+      const isTypoOfReadiness = lower.includes('bater') || lower.includes('readi') || lower.includes('recup');
+      const isTypoOfHeart = lower.includes('coraz') || lower.includes('puls');
+
+      if (isTypoOfSleep) {
+        return ctx.replyWithMarkdown('💡 ¿Quisiste decir */comodormi*? Escríbelo con la barra o pulsa aquí: /comodormi');
+      }
+      if (isTypoOfPrescription) {
+        return ctx.replyWithMarkdown('💡 ¿Quisiste consultar tu entrenamiento de hoy? Usa /prescripcion o /menu.');
+      }
+      if (isTypoOfReadiness) {
+        return ctx.replyWithMarkdown('💡 ¿Quisiste ver tu batería corporal? Usa /readiness o /menu.');
+      }
+      if (isTypoOfHeart) {
+        return ctx.replyWithMarkdown('💡 ¿Quisiste ver tus datos cardíacos? Usa /corazon o /menu.');
+      }
+
+      // Validación de si es una pregunta real en lenguaje natural
+      const hasQuestionMark = text.includes('?') || text.includes('¿');
+      const questionKeywords = ['como', 'que', 'por que', 'porque', 'cuando', 'donde', 'cual', 'cuanto', 'puedo', 'debo', 'explicame', 'dime', 'analiza', 'revisa', 'recomiendas', 'siento'];
+      const hasQuestionWord = questionKeywords.some(kw => lower.includes(kw));
+      const wordCount = text.split(/\s+/).length;
+
+      // Si es una sola palabra suelta no reconocida o texto muy corto sin sentido de pregunta, NO llamamos a Gemini para no malgastar tokens
+      if (wordCount === 1 && !hasQuestionMark) {
+        return ctx.replyWithMarkdown(`🤔 No reconocí la palabra *"${text}"* como un comando.\n\nUsa /menu para ver la lista de opciones o hazme una pregunta completa (ej: *¿Puedo entrenar hoy?*).`);
+      }
+
+      if (!hasQuestionMark && !hasQuestionWord && wordCount < 3) {
+        return ctx.replyWithMarkdown('🤔 Para consultar a tu Coach IA, hazme una pregunta directa (ej: *¿cómo dormí anoche?* o *¿por qué mi pulso está en 45 bpm?*), o pulsa /menu.');
+      }
+
+      // 3. Pregunta específica del usuario en lenguaje natural validada
       sendTyping(ctx);
 
       const snapshot = {
