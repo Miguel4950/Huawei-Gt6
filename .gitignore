@@ -10,11 +10,6 @@ vertex_key*.json
 .env.local
 .env.*.local
 
-# Datos personales biométricos (mantener privados)
-health_data/
-*.fit
-*.tcx
-
 # Logs y temporales
 *.log
 .system_generated/

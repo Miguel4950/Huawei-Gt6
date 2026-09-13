@@ -1,5 +1,8 @@
 const { Telegraf, Markup } = require('telegraf');
 const http = require('http');
+const fs = require('fs');
+const path = require('path');
+const https = require('https');
 const config = require('../config/config');
 const sleepEngine = require('../analytics/sleepEngine');
 const heartEngine = require('../analytics/heartEngine');
@@ -10,6 +13,7 @@ const readinessEngine = require('../analytics/readinessEngine');
 const geminiCoach = require('../ai/geminiCoach');
 const prompts = require('../ai/prompts');
 const formatters = require('./formatters');
+const driveSync = require('../drive/driveSync');
 
 class HealthTelegramBot {
   constructor(token = config.TELEGRAM_TOKEN) {
@@ -38,7 +42,10 @@ class HealthTelegramBot {
         Markup.button.callback('📈 Informe Semanal', 'btn_semanal')
       ],
       [
-        Markup.button.callback('💰 Presupuesto & Tokens', 'btn_presupuesto'),
+        Markup.button.callback('🔄 Sincronizar Drive', 'btn_sync'),
+        Markup.button.callback('💰 Presupuesto & Tokens', 'btn_presupuesto')
+      ],
+      [
         Markup.button.callback('❓ Guía de Comandos', 'btn_ayuda')
       ]
     ]);
@@ -46,8 +53,6 @@ class HealthTelegramBot {
 
   setupRoutes() {
     const bot = this.bot;
-
-    // Helper to send typing
     const sendTyping = (ctx) => ctx.sendChatAction('typing').catch(() => {});
 
     // START & MENU
@@ -83,15 +88,29 @@ class HealthTelegramBot {
         `• /pasos - Pasos, distancia, calorías y hora pico\n` +
         `• /sedentarismo - Horas continuas de inactividad diurna\n` +
         `• /actividad - Último entrenamiento registrado\n\n` +
-        `📊 *Informes Temporales:*\n` +
+        `📊 *Informes Temporales & Utilidades:*\n` +
         `• /hoy - Tablero de mando integral del día\n` +
         `• /semanal - Informe ejecutivo semanal con metas\n` +
+        `• /sync - Sincronizar carpetas de Google Drive\n` +
         `• /presupuesto - Estado de tokens y saldo restante ($5/mes)\n\n` +
-        `💬 *Preguntas libres:* ¡Puedes preguntarme cualquier cosa en texto libre!`;
+        `📎 *Subida Directa:* ¡También puedes enviarme cualquier archivo CSV por este chat y lo analizaré de inmediato!`;
       await ctx.replyWithMarkdown(text);
     };
     bot.help(handleHelp);
     bot.command('ayuda', handleHelp);
+
+    // SYNC DRIVE
+    const handleSync = async (ctx) => {
+      sendTyping(ctx);
+      await ctx.reply('🔄 Conectando con Google Drive para sincronizar archivos nuevos...');
+      const res = await driveSync.syncAll();
+      if (res.success) {
+        await ctx.replyWithMarkdown(`✅ *Sincronización Exitosa!*\n• Archivos descargados: *${res.syncedCount}* nuevos.`);
+      } else {
+        await ctx.replyWithMarkdown(`⚠️ *Nota de Google Drive:*\n${res.message}\n\n💡 *Tip:* También puedes enviar archivos CSV directamente por este chat adjuntándolos como documento.`);
+      }
+    };
+    bot.command('sync', handleSync);
 
     // COMODORMI
     const handleSleep = async (ctx) => {
@@ -99,7 +118,7 @@ class HealthTelegramBot {
       const sleep = sleepEngine.getLatestNight();
       const prevSleep = sleepEngine.getPreviousNight();
       if (!sleep) {
-        return ctx.replyWithMarkdown('❌ No se encontraron registros de sueño en la carpeta.');
+        return ctx.replyWithMarkdown('❌ No se encontraron registros de sueño en la carpeta. Usa /sync o envía un CSV.');
       }
       try {
         const prompt = prompts.buildSleepPrompt(sleep, prevSleep);
@@ -203,7 +222,7 @@ class HealthTelegramBot {
       const heart = heartEngine.getLatestDayStats();
       const rhrTrend = heartEngine.getRhrTrend();
       const spikes = heartEngine.detectStressSpikes(heart ? heart.date : '');
-      if (!heart) return ctx.replyWithMarkdown('❌ No hay datos de frecuencia cardíaca.');
+      if (!heart) return ctx.replyWithMarkdown('❌ No hay datos de frecuencia cardíaca disponibles.');
       try {
         const prompt = prompts.buildHeartPrompt(heart, rhrTrend, spikes);
         const aiRes = await geminiCoach.generateAnalysis(prompt);
@@ -357,6 +376,60 @@ class HealthTelegramBot {
       await ctx.replyWithMarkdown(t);
     });
 
+    // Manejador de subida directa de archivos CSV
+    bot.on('document', async (ctx) => {
+      const doc = ctx.message.document;
+      if (!doc || !doc.file_name.toLowerCase().endsWith('.csv')) {
+        return ctx.reply('📎 Por favor envía archivos en formato .csv');
+      }
+
+      sendTyping(ctx);
+      await ctx.reply(`📥 Recibiendo *${doc.file_name}*...`, { parse_mode: 'Markdown' });
+
+      try {
+        const fileLink = await ctx.telegram.getFileLink(doc.file_id);
+        const name = doc.file_name;
+        let targetFolder = 'Health Sync Sueño';
+
+        if (name.includes('Frecuencia') || name.includes('cardíaca') || name.includes('cardiaca')) {
+          targetFolder = 'Health Sync Frecuencia cardíaca';
+        } else if (name.includes('Pasos')) {
+          targetFolder = 'Health Sync Pasos';
+        } else if (name.includes('oxígeno') || name.includes('oxigeno') || name.includes('Saturación')) {
+          targetFolder = 'Health Sync Saturación de oxígeno';
+        } else if (name.includes('Actividades') || name.includes('GENERIC') || name.includes('Actividad')) {
+          targetFolder = 'Health Sync Actividades';
+        }
+
+        const destDir = path.join(config.HEALTH_DATA_DIR, targetFolder);
+        if (!fs.existsSync(destDir)) fs.mkdirSync(destDir, { recursive: true });
+        const destFile = path.join(destDir, name);
+
+        // Download via HTTPS
+        await new Promise((resolve, reject) => {
+          const fileStream = fs.createWriteStream(destFile);
+          https.get(fileLink.href, res => {
+            res.pipe(fileStream);
+            fileStream.on('finish', resolve);
+            fileStream.on('error', reject);
+          }).on('error', reject);
+        });
+
+        await ctx.replyWithMarkdown(`✅ *¡Archivo guardado en ${targetFolder}!* Procesando análisis...`);
+
+        // Trigger analysis
+        if (targetFolder === 'Health Sync Sueño') {
+          await handleSleep(ctx);
+        } else if (targetFolder === 'Health Sync Frecuencia cardíaca') {
+          await handleHeart(ctx);
+        } else if (targetFolder === 'Health Sync Pasos') {
+          await handleSteps(ctx);
+        }
+      } catch (err) {
+        await ctx.reply(`❌ Error guardando el archivo: ${err.message}`);
+      }
+    });
+
     // Inline Button Handlers
     bot.action('btn_comodormi', async (ctx) => {
       await ctx.answerCbQuery().catch(() => {});
@@ -393,6 +466,10 @@ class HealthTelegramBot {
       await ctx.answerCbQuery().catch(() => {});
       ctx.message = { text: '/semanal' };
       bot.handleUpdate({ message: { chat: ctx.chat, text: '/semanal' } });
+    });
+    bot.action('btn_sync', async (ctx) => {
+      await ctx.answerCbQuery().catch(() => {});
+      await handleSync(ctx);
     });
     bot.action('btn_presupuesto', async (ctx) => {
       await ctx.answerCbQuery().catch(() => {});
@@ -456,6 +533,8 @@ class HealthTelegramBot {
     this.bot.launch().then(() => {
       this.isLaunched = true;
       console.log('🤖 [Bot] @AnalistaBotMiguelAcuBot está conectado a Telegram y escuchando mensajes!');
+      // Trigger background Drive sync (non-blocking)
+      driveSync.syncAll().then(r => console.log('[DriveSync Background]', r.message)).catch(() => {});
     }).catch(err => {
       console.error('[Bot] Error en launch:', err.message);
     });
