@@ -31,23 +31,37 @@ FILOSOFÍA FUNDAMENTAL: REALISMO CRÍTICO Y FRIALDAD ANALÍTICA
    - PROHIBIDO USAR TABLAS MARKDOWN ('|'). Usa listas con viñetas elegantes.
    - Miguel tiene 21 años (nacido en 2004). NUNCA digas que tiene 28 años ni inventes otra edad.`;
 
-function buildSleepPrompt(sleepData, prevSleepData) {
-  return `Analiza con frialdad y rigor la última noche de sueño con estos datos biométricos exactos:
+function buildSleepPrompt(sleepData, prevSleepData, historyStats = null) {
+  let contextExtra = '';
+  if (historyStats && historyStats.weekly) {
+    const w = historyStats.weekly;
+    const m = historyStats.monthly;
+    const d = historyStats.debt;
+    contextExtra = `
+- Contexto Semanal (últimos 7 días): Media ${w.avgHours}h/noche | Eficiencia media ${w.avgEfficiency}% | Profundo medio ${w.avgDeepPct}% | REM medio ${w.avgRemPct}%
+- Desviación anoche vs Semana: ${w.deltaHours > 0 ? '+' : ''}${w.deltaHours}h de sueño | Profundo: ${w.deltaDeepPct > 0 ? '+' : ''}${w.deltaDeepPct}%
+- Deuda acumulada de sueño en 7 días: ${d.totalDebtHours > 0 ? `${d.totalDebtHours}h de DÉFICIT` : 'Sin déficit'} (Media real: ${d.avgDailySleepHours}h vs meta 8h)
+${m ? `- Contexto Mensual (últimos 30 días): Media ${m.avgHours}h/noche | Eficiencia media ${m.avgEfficiency}% | Desviación: ${m.deltaHours > 0 ? '+' : ''}${m.deltaHours}h` : ''}
+${historyStats.chronotype ? `- Cronotipo estimado: ${historyStats.chronotype.chronotype} (Punto medio: ${sleepData.sleepMidpoint || 'N/A'})` : ''}`;
+  }
+
+  return `Analiza con frialdad y rigor la última noche de descanso integrando su contexto semanal y mensual:
 - Fecha: ${sleepData.date}
 - Horario en cama: ${sleepData.startTime} ➔ ${sleepData.endTime} (${sleepData.inBedHours}h acostado)
 - Tiempo real dormido: ${sleepData.totalSleepHours}h (Eficiencia: ${sleepData.efficiencyPct}%, Score: ${sleepData.sleepScore}/100)
 - Fases: REM ${sleepData.remPct}%, Profundo ${sleepData.deepPct}%, Ligero ${sleepData.lightPct}%, Despierto ${sleepData.awakePct}% (${sleepData.awakeCount} microdespertares)
 - Ciclos ultradianos (~90 min): ${sleepData.cyclesCount} ciclos | Despertar: fase ${sleepData.lastStage.toUpperCase()}
-${prevSleepData ? `- Noche anterior (${prevSleepData.date}): ${prevSleepData.totalSleepHours}h (REM: ${prevSleepData.remPct}%, Profundo: ${prevSleepData.deepPct}%)` : ''}
+${prevSleepData ? `- Noche anterior (${prevSleepData.date}): ${prevSleepData.totalSleepHours}h (REM: ${prevSleepData.remPct}%, Profundo: ${prevSleepData.deepPct}%)` : ''}${contextExtra}
 
 INSTRUCCIONES DE RESPUESTA:
-- Sé analítico, directo y honesto. Cero cumplidos falsos. Si una fase fue insuficiente (ej: profundo < 15% o REM bajo), señala la consecuencia real en su recuperación.
-- Máximo 200-250 palabras. NO uses '#' ni tablas '|'.
+- Sé analítico, directo y honesto. Cero cumplidos falsos.
+- Cruza la noche de anoche con la tendencia semanal y mensual: explica si el sueño profundo o REM fue un rebote compensatorio por deuda acumulada o si consolida un déficit crónico.
+- Máximo 220-270 palabras. NO uses '#' ni tablas '|'.
 - Estructura:
-  🏆 *Veredicto Realista:* Calificación objetiva y estado fisiológico real para hoy.
-  🧠 *Análisis Crudo de Fases:* Qué se recuperó y qué quedó a deber en el sueño profundo y REM.
-  📈 *Comparativa vs Noche Anterior:* 1-2 viñetas directas de cambios medibles.
-  🎯 *Ajuste para Hoy:* 2 acciones claras para compensar o aprovechar el día.`;
+  🏆 *Veredicto Realista:* Calificación objetiva de anoche y estado neuromuscular real para hoy.
+  🧠 *Desglose Fisiológico de Fases:* Qué se regeneró (muscular vs cognitivo) y si hubo rebote homeostático de profundo.
+  📈 *Tendencia Semanal & Mensual:* Cómo se posiciona anoche respecto a sus medias de 7 y 30 días y el impacto de su deuda de sueño.
+  🎯 *Prescripción Circadiana para Hoy:* 2 acciones claras para compensar o potenciar el rendimiento.`;
 }
 
 function buildWorkoutPrompt(workoutData) {

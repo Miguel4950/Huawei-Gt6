@@ -9,7 +9,7 @@ function renderProgressBar(percentage, length = 10) {
   return `[${'█'.repeat(filled)}${'░'.repeat(empty)}] ${clamped.toFixed(0)}%`;
 }
 
-function formatSleepSummary(sleep, aiText = '') {
+function formatSleepSummary(sleep, aiText = '', historyStats = null) {
   if (!sleep) return '❌ No se encontraron registros de sueño recientes.';
 
   const deepBar = renderProgressBar(sleep.deepPct);
@@ -31,11 +31,29 @@ function formatSleepSummary(sleep, aiText = '') {
   msg += `📊 *Eficiencia del sueño:* *${sleep.efficiencyPct}%* (Score: *${sleep.sleepScore}/100*)\n`;
   msg += `🔄 *Ciclos ultradianos completos:* *${sleep.cyclesCount}* (${sleep.wokenUpInDeep ? '⚠️ Despertar en fase profunda' : '✅ Despertar suave'})\n\n`;
 
-  msg += `*Desglose de Fases:*\n`;
-  msg += `• 🧠 *Fase REM:* ${(sleep.remSeconds / 60).toFixed(0)} min | ${remBar}\n`;
-  msg += `• 🔋 *Profundo:* ${(sleep.deepSeconds / 60).toFixed(0)} min | ${deepBar}\n`;
-  msg += `• 🛋️ *Ligero:* ${(sleep.lightSeconds / 60).toFixed(0)} min | ${lightBar}\n`;
+  msg += `*Desglose de Fases de Anoche:*\n`;
+  msg += `• 🧠 *Fase REM:* ${(sleep.remSeconds / 60).toFixed(0)} min (${sleep.remPct}%) | ${remBar}\n`;
+  msg += `• 🔋 *Profundo:* ${(sleep.deepSeconds / 60).toFixed(0)} min (${sleep.deepPct}%) | ${deepBar}\n`;
+  msg += `• 🛋️ *Ligero:* ${(sleep.lightSeconds / 60).toFixed(0)} min (${sleep.lightPct}%) | ${lightBar}\n`;
   msg += `• 👀 *Despierto:* ${(sleep.awakeSeconds / 60).toFixed(0)} min (${sleep.awakeCount} microdespertares)\n\n`;
+
+  if (historyStats && historyStats.weekly) {
+    const w = historyStats.weekly;
+    const m = historyStats.monthly;
+    const d = historyStats.debt;
+    const ch = historyStats.chronotype;
+
+    msg += `📈 *Contexto & Comparativa (Semana / Mes):*\n`;
+    msg += `• 📅 *vs Media Semanal (${w.avgHours}h):* ${w.deltaHours >= 0 ? '+' : ''}${w.deltaHours}h | Profundo: ${w.deltaDeepPct >= 0 ? '+' : ''}${w.deltaDeepPct}%\n`;
+    if (m) {
+      msg += `• 🗓️ *vs Media Mensual (${m.avgHours}h):* ${m.deltaHours >= 0 ? '+' : ''}${m.deltaHours}h | Eficiencia: ${w.deltaEfficiency >= 0 ? '+' : ''}${w.deltaEfficiency}%\n`;
+    }
+    msg += `• 📉 *Deuda de Sueño (7 días):* *${d.totalDebtHours > 0 ? `-${d.totalDebtHours}h déficit` : `+${Math.abs(d.totalDebtHours)}h superávit`}* (Media: ${d.avgDailySleepHours}h/día)\n`;
+    if (ch && ch.chronotype) {
+      msg += `• 🕰️ *Cronotipo & Midpoint:* ${ch.chronotype} (Punto medio: ${sleep.sleepMidpoint || 'N/D'})\n`;
+    }
+    msg += `\n`;
+  }
 
   if (aiText) {
     msg += `💡 *Diagnóstico de Gemini (Coach Biométrico):*\n${aiText}\n`;

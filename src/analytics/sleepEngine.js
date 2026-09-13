@@ -246,6 +246,65 @@ class SleepEngine {
       midpoints
     };
   }
+
+  getSleepHistoryStats() {
+    const sessions = this.getSleepSessions();
+    if (sessions.length === 0) return null;
+
+    const latest = sessions[sessions.length - 1];
+    const previous = sessions.length > 1 ? sessions[sessions.length - 2] : null;
+
+    // Últimos 7 descansos (Semana)
+    const weekSessions = sessions.slice(-7);
+    const weekCount = weekSessions.length;
+    const weekAvgHours = weekSessions.reduce((acc, s) => acc + s.totalSleepHours, 0) / weekCount;
+    const weekAvgEff = weekSessions.reduce((acc, s) => acc + s.efficiencyPct, 0) / weekCount;
+    const weekAvgDeep = weekSessions.reduce((acc, s) => acc + s.deepPct, 0) / weekCount;
+    const weekAvgRem = weekSessions.reduce((acc, s) => acc + s.remPct, 0) / weekCount;
+
+    // Últimos 30 descansos (Mes)
+    const monthSessions = sessions.slice(-30);
+    const monthCount = monthSessions.length;
+    const monthAvgHours = monthSessions.reduce((acc, s) => acc + s.totalSleepHours, 0) / monthCount;
+    const monthAvgEff = monthSessions.reduce((acc, s) => acc + s.efficiencyPct, 0) / monthCount;
+    const monthAvgDeep = monthSessions.reduce((acc, s) => acc + s.deepPct, 0) / monthCount;
+    const monthAvgRem = monthSessions.reduce((acc, s) => acc + s.remPct, 0) / monthCount;
+
+    // Deuda de sueño (meta de 8 horas)
+    const debt = this.calculateSleepDebt(8.0);
+    const chronotype = this.determineChronotype();
+
+    // Deltas de la última noche vs promedios
+    const deltaWeekHours = parseFloat((latest.totalSleepHours - weekAvgHours).toFixed(2));
+    const deltaMonthHours = parseFloat((latest.totalSleepHours - monthAvgHours).toFixed(2));
+    const deltaWeekDeep = parseFloat((latest.deepPct - weekAvgDeep).toFixed(1));
+    const deltaWeekEff = parseFloat((latest.efficiencyPct - weekAvgEff).toFixed(1));
+
+    return {
+      latest,
+      previous,
+      weekly: {
+        sessionsCount: weekCount,
+        avgHours: parseFloat(weekAvgHours.toFixed(2)),
+        avgEfficiency: parseFloat(weekAvgEff.toFixed(1)),
+        avgDeepPct: parseFloat(weekAvgDeep.toFixed(1)),
+        avgRemPct: parseFloat(weekAvgRem.toFixed(1)),
+        deltaHours: deltaWeekHours,
+        deltaDeepPct: deltaWeekDeep,
+        deltaEfficiency: deltaWeekEff
+      },
+      monthly: {
+        sessionsCount: monthCount,
+        avgHours: parseFloat(monthAvgHours.toFixed(2)),
+        avgEfficiency: parseFloat(monthAvgEff.toFixed(1)),
+        avgDeepPct: parseFloat(monthAvgDeep.toFixed(1)),
+        avgRemPct: parseFloat(monthAvgRem.toFixed(1)),
+        deltaHours: deltaMonthHours
+      },
+      debt,
+      chronotype
+    };
+  }
 }
 
 module.exports = new SleepEngine();

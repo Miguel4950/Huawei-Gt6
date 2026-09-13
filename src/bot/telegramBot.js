@@ -27,6 +27,16 @@ class HealthTelegramBot {
     this.keepAliveInterval = null;
   }
 
+  getPersistentKeyboard() {
+    const kb = Markup.keyboard([
+      ['/menu', '/lista'],
+      ['/comodormi', '/hoy'],
+      ['/bateria', '/prescripcion']
+    ]).resize();
+    kb.reply_markup.is_persistent = true;
+    return kb;
+  }
+
   getMenuKeyboard() {
     return Markup.inlineKeyboard([
       [
@@ -64,6 +74,31 @@ class HealthTelegramBot {
     ]);
   }
 
+  async registerBotCommands() {
+    try {
+      await this.bot.telegram.setMyCommands([
+        { command: 'menu', description: '📱 Menú interactivo con botones táctiles' },
+        { command: 'lista', description: '📋 Lista completa y guía de todos los comandos' },
+        { command: 'comodormi', description: '🌙 Diagnóstico de sueño (anoche + semana + mes)' },
+        { command: 'hoy', description: '📊 Tablero biométrico 360° en tiempo real' },
+        { command: 'bateria', description: '⚡ Batería corporal y preparación física (0-100)' },
+        { command: 'prescripcion', description: '🏋️ Prescripción de entrenamiento para hoy' },
+        { command: 'pregunta', description: '💬 Consulta libre a tu Coach IA' },
+        { command: 'acwr', description: '📈 Ratio de carga deportiva (Tim Gabbett)' },
+        { command: 'sistema_autonomo', description: '🧠 Tono vagal, estrés cardíaco y dip nocturno' },
+        { command: 'edad_biologica', description: '🧬 Edad biológica vs cronológica' },
+        { command: 'corazon', description: '❤️ Frecuencia cardíaca y RHR de 7 días' },
+        { command: 'pasos', description: '🚶 Pasos diarios, distancia y calorías' },
+        { command: 'peso', description: '⚖️ Peso y composición corporal' },
+        { command: 'semanal', description: '🏆 Informe ejecutivo de los últimos 7 días' },
+        { command: 'sync', description: '🔄 Sincronizar datos con Google Drive' }
+      ]);
+      console.log('[Bot] ✅ Comandos oficiales registrados en Telegram Menu.');
+    } catch (err) {
+      console.warn('[Bot] No se pudieron registrar los comandos en Telegram:', err.message);
+    }
+  }
+
   setupRoutes() {
     const bot = this.bot;
     const sendTyping = (ctx) => ctx.sendChatAction('typing').catch(() => {});
@@ -71,17 +106,20 @@ class HealthTelegramBot {
     // Global error handler to prevent unhandled rejections from freezing the bot
     bot.catch((err, ctx) => {
       console.error(`[Bot Error] en update ${ctx?.update?.update_id}:`, err?.message || err);
-      ctx?.reply('⚠️ Ocurrió un inconveniente temporal. Intenta de nuevo o presiona /menu.').catch(() => {});
+      ctx?.reply('⚠️ Ocurrió un inconveniente temporal. Intenta de nuevo o presiona /menu.', this.getPersistentKeyboard()).catch(() => {});
     });
 
-    // Helper to send messages safely with chunking and table conversion
-    const sendSafeMessage = async (ctx, text) => {
+    // Helper to send messages safely with chunking, table conversion and persistent keyboard
+    const sendSafeMessage = async (ctx, text, customMarkup = null) => {
       const cleanText = formatters.convertMarkdownTables(text);
       const chunks = formatters.splitMessage(cleanText);
-      for (const chunk of chunks) {
-        await ctx.replyWithMarkdown(chunk).catch(async () => {
+      for (let i = 0; i < chunks.length; i++) {
+        const chunk = chunks[i];
+        const isLast = i === chunks.length - 1;
+        const markup = isLast ? (customMarkup || this.getPersistentKeyboard()) : undefined;
+        await ctx.replyWithMarkdown(chunk, markup).catch(async () => {
           // Fallback if markdown parsing has rare issues
-          await ctx.reply(chunk.replace(/[*_`]/g, ''));
+          await ctx.reply(chunk.replace(/[*_`]/g, ''), markup);
         });
       }
     };
@@ -117,9 +155,10 @@ class HealthTelegramBot {
         `Estoy conectado a los datos de tu smartwatch *Huawei Watch GT* (vía Health Sync).\n` +
         `Analizo tu sueño, frecuencia cardíaca, pasos, oxígeno y entrenamientos con *Gemini 3.8 Flash (Thinking MEDIUM)* ` +
         `para darte diagnósticos médicos y deportivos comprensibles y profundos.\n\n` +
-        `📖 *¿Quieres ver todos los comandos disponibles?* Escribe /lista o presiona el botón abajo.\n\n` +
-        `👇 *Selecciona una opción del menú o escribe cualquier comando:*`;
+        `📖 *¿Quieres ver todos los comandos disponibles?* Escribe /lista o presiona los botones abajo.\n\n` +
+        `👇 *Selecciona una opción del menú:*`;
       try {
+        await ctx.reply('🎛️ Acceso rápido activo sobre tu teclado con /menu y /lista.', this.getPersistentKeyboard()).catch(() => {});
         await ctx.replyWithMarkdown(text, this.getMenuKeyboard());
       } catch (err) {
         console.warn('[Bot] Fallback en menú a texto plano:', err.message);
@@ -129,46 +168,47 @@ class HealthTelegramBot {
     bot.start(handleStart);
     bot.command('menu', handleStart);
 
-    // LISTA DE COMANDOS Y GUÍA COMPLETA
+    // LISTA DE COMANDOS Y GUÍA COMPLETA (ORDENADA POR IMPORTANCIA DE USO)
     const handleHelp = async (ctx) => {
-      let text = `📋 *LISTA COMPLETA DE COMANDOS — COACH BIOMÉTRICO*\n\n` +
-        `🤖 *Consulta Directa con IA:*\n` +
-        `• /pregunta [tu duda] — Hazle cualquier consulta abierta a tu Coach IA (con tu contexto biométrico en mente)\n\n` +
-        `🏋️ *Entrenamiento y Rendimiento:*\n` +
-        `• /prescripcion (o /plan_hoy) — Sesión del día calculada según tu recuperación, pulso y zonas Karvonen\n` +
-        `• /acwr (o /carga_entrenamiento) — Ratio agudo:crónico de carga para evitar sobreentrenamiento y lesiones\n` +
-        `• /actividad (o /entrenamiento) — Análisis profundo de tu última sesión de ejercicio\n` +
-        `• /recuperacion_entreno — Horas exactas que te faltan para recuperar al 100%\n` +
+      let text = `📋 *LISTA COMPLETA DE COMANDOS — COACH BIOMÉTRICO*\n` +
+        `_(Comandos organizados por orden de importancia y frecuencia de uso)_\n\n` +
+        `⭐ *1. Comandos Principales & Diarios (Imprescindibles):*\n` +
+        `• /menu — Menú principal táctil con botones rápidos\n` +
+        `• /lista — Esta guía completa y directorio de comandos\n` +
+        `• /comodormi — Diagnóstico de sueño con IA (última noche + semana + mes)\n` +
+        `• /hoy — Tablero de mando 360° con todas tus métricas de hoy\n` +
+        `• /bateria (o /readiness) — Semáforo de energía y preparación física (0-100)\n` +
+        `• /prescripcion (o /plan_hoy) — Sesión de entrenamiento personalizada para hoy\n` +
+        `• /pregunta [tu duda] — Consulta libre a tu Coach IA con tu telemetría\n\n` +
+        `🏋️ *2. Rendimiento Deportivo & Prevención de Lesiones:*\n` +
+        `• /acwr (o /carga_entrenamiento) — Ratio agudo:crónico de carga (Tim Gabbett)\n` +
+        `• /actividad (o /entrenamiento) — Telemetría de tu última sesión de ejercicio\n` +
+        `• /recuperacion_entreno — Horas restantes para regeneración muscular total\n` +
         `• /historial_actividades — Resumen de tus últimos 5 entrenamientos\n\n` +
-        `🌙 *Sueño y Descanso:*\n` +
-        `• /comodormi — Diagnóstico clínico de cómo dormiste anoche con IA\n` +
-        `• /fases — Barras visuales de sueño REM, Profundo y Ligero\n` +
-        `• /ciclos — Ciclos ultradianos (~90 min) y calidad del despertar\n` +
-        `• /eficiencia — Porcentaje real dormido vs tiempo en cama\n` +
-        `• /deuda_sueno — Déficit acumulado de horas de sueño en los últimos 7 días\n` +
-        `• /cronotipo — Identificación de tu reloj biológico (Alondra / Búho)\n` +
-        `• /apnea_oxigeno — Despertares nocturnos cruzados con caídas de SpO2\n\n` +
-        `🧠 *Corazón, Sistema Autónomo y Longevidad:*\n` +
-        `• /sistema_autonomo (o /estres_cardiaco) — Tono vagal, estrés cardíaco y caída nocturna (dip %)\n` +
-        `• /edad_biologica (o /longevidad) — Edad biológica vs cronológica según biomarcadores\n` +
+        `🧠 *3. Corazón, Sistema Autónomo & Longevidad:*\n` +
+        `• /sistema_autonomo (o /estres_cardiaco) — Tono vagal, estrés y descenso nocturno (dip %)\n` +
+        `• /edad_biologica (o /longevidad) — Edad biológica vs cronológica (referencia: 21 años)\n` +
         `• /corazon — Frecuencia cardíaca media, mínima y pico del día\n` +
         `• /frecuencia_reposo — Pulso en reposo (RHR) y tendencia de 7 días\n` +
-        `• /zonas — Distribución del tiempo en Zonas Cardíacas Z1 a Z5\n` +
-        `• /picos_estres — Taquicardias en reposo detectadas (pulso alto sin movimiento)\n\n` +
-        `⚡ *Batería Corporal y Actividad Diaria:*\n` +
-        `• /readiness (o /bateria) — Semáforo de preparación física y energía diaria (0-100)\n` +
-        `• /pasos — Pasos caminados, kilómetros y calorías quemadas\n` +
-        `• /peso — Peso corporal, grasa, masa muscular y tasa metabólica basal (BMR)\n` +
+        `• /zonas — Distribución del tiempo en Zonas Karvonen Z1 a Z5\n` +
+        `• /picos_estres — Detección de taquicardia en reposo (estrés sin movimiento)\n\n` +
+        `🌙 *4. Arquitectura Detallada de Sueño & Respiración:*\n` +
+        `• /fases — Barras visuales de sueño REM, Profundo y Ligero\n` +
+        `• /ciclos — Conteo de ciclos ultradianos (~90 min) y calidad del despertar\n` +
+        `• /eficiencia — Porcentaje real dormido vs tiempo en cama\n` +
+        `• /deuda_sueno — Horas de déficit acumuladas en los últimos 7 días\n` +
+        `• /cronotipo — Identificación de tu reloj biológico (Alondra / Búho)\n` +
+        `• /apnea_oxigeno — Despertares nocturnos cruzados con caídas de SpO2\n\n` +
+        `🚶 *5. Pasos, Peso & Actividad Diaria:*\n` +
+        `• /pasos — Pasos caminados, kilómetros y calorías activas\n` +
+        `• /peso (o /composicion_corporal) — Peso corporal, grasa, masa muscular y BMR\n` +
         `• /sedentarismo — Horas continuas de inactividad diurna sentado\n` +
-        `• /hoy — Tablero de mando integral 360° con todas las métricas de hoy\n` +
-        `• /semanal — Informe ejecutivo de la semana con áreas a optimizar\n\n` +
-        `⚙️ *Herramientas y Sistema:*\n` +
-        `• /menu — Abre el menú interactivo con botones rápidos\n` +
-        `• /lista (o /comandos) — Muestra esta lista de comandos\n` +
-        `• /edad [años] — Consultar o actualizar tu edad real (actual: 21 años)\n` +
-        `• /sync — Forzar sincronización inmediata desde Google Drive\n` +
-        `• /presupuesto — Contador de tokens consumidos y saldo de tus $5 USD/mes\n\n` +
-        `📎 *Subida Directa:* Puedes arrastrar y soltar cualquier archivo CSV en este chat para analizarlo al instante.`;
+        `• /semanal — Informe ejecutivo de los últimos 7 días\n\n` +
+        `⚙️ *6. Herramientas, Ajustes & Control:*\n` +
+        `• /sync — Sincronización inmediata con Google Drive\n` +
+        `• /presupuesto — Contador de tokens consumidos y saldo de tus $5.00 USD/mes\n` +
+        `• /edad [años] — Consultar o actualizar tu edad real\n\n` +
+        `📎 *Subida Directa:* Puedes arrastrar y soltar cualquier archivo CSV a este chat para analizarlo al instante.`;
       await sendSafeMessage(ctx, text);
     };
     bot.help(handleHelp);
@@ -180,7 +220,7 @@ class HealthTelegramBot {
       await ctx.reply('🔄 Conectando con Google Drive para sincronizar archivos nuevos...');
       const res = await driveSync.syncAll();
       if (res.success) {
-        await ctx.replyWithMarkdown(`✅ *Sincronización Exitosa!*\n• Archivos descargados: *${res.syncedCount}* nuevos.`);
+        await ctx.replyWithMarkdown(`✅ *Sincronización Exitosa!*\n• Archivos descargados o actualizados: *${res.syncedCount}*.`);
       } else {
         await ctx.replyWithMarkdown(`⚠️ *Nota de Google Drive:*\n${res.message}\n\n💡 *Tip:* También puedes enviar archivos CSV directamente por este chat adjuntándolos como documento.`);
       }
@@ -191,6 +231,7 @@ class HealthTelegramBot {
     const handleSleep = async (ctx) => {
       let sleep = sleepEngine.getLatestNight();
       let prevSleep = sleepEngine.getPreviousNight();
+      let historyStats = sleepEngine.getSleepHistoryStats();
 
       // Si los datos tienen más de 18 horas de antigüedad, intentamos un sync rápido de Drive primero
       if (sleep) {
@@ -203,6 +244,7 @@ class HealthTelegramBot {
             if (syncRes.success && syncRes.syncedCount > 0) {
               sleep = sleepEngine.getLatestNight();
               prevSleep = sleepEngine.getPreviousNight();
+              historyStats = sleepEngine.getSleepHistoryStats();
             }
           }
         } catch (syncErr) {
@@ -213,14 +255,14 @@ class HealthTelegramBot {
       if (!sleep) {
         return ctx.replyWithMarkdown('❌ No se encontraron registros de sueño en la carpeta. Usa /sync o envía un CSV.');
       }
-      await executeWithAiFeedback(ctx, 'Analizando tu sueño...', async () => {
+      await executeWithAiFeedback(ctx, 'Analizando tu sueño y contexto macro (semana y mes)...', async () => {
         try {
-          const prompt = prompts.buildSleepPrompt(sleep, prevSleep);
+          const prompt = prompts.buildSleepPrompt(sleep, prevSleep, historyStats);
           const aiRes = await geminiCoach.generateAnalysis(prompt);
-          const msg = formatters.formatSleepSummary(sleep, aiRes.text);
+          const msg = formatters.formatSleepSummary(sleep, aiRes.text, historyStats);
           await sendSafeMessage(ctx, msg);
         } catch (err) {
-          const msg = formatters.formatSleepSummary(sleep, `(Nota: Análisis local - ${err.message})`);
+          const msg = formatters.formatSleepSummary(sleep, `(Nota: Análisis local - ${err.message})`, historyStats);
           await sendSafeMessage(ctx, msg);
         }
       });
@@ -842,6 +884,9 @@ class HealthTelegramBot {
     this.bot.launch().then(() => {
       this.isLaunched = true;
       console.log('🤖 [Bot] @AnalistaBotMiguelAcuBot está conectado a Telegram y escuchando mensajes!');
+
+      // Registrar comandos oficiales en el menú de Telegram
+      this.registerBotCommands();
 
       // Sincronización inicial inmediata
       driveSync.syncAll().then(r => {
