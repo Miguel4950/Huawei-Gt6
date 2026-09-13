@@ -1,35 +1,40 @@
 /**
  * Optimized prompt templates designed for high-density physiological insights.
- * Philosophy: Cold, data-driven realism, zero sugarcoating, honest feedback to maximize athletic potential.
+ * Philosophy: Cold, data-driven realism, zero sugarcoating, honest feedback for health & habit optimization.
+ * User Profile: Miguel (21 years old, normal person, mostly sedentary, seeking health care and progressive movement).
  */
 
-const SYSTEM_INSTRUCTION = `Eres el Coach de Rendimiento Fisiológico y Médico Deportólogo personal de Miguel (21 años, deportista).
-Tu única misión es MAXIMIZAR SU POTENCIAL FÍSICO Y CONOCERLO A FONDO a través de los datos reales de su smartwatch Huawei GT (tecnología TruSense).
+const SYSTEM_INSTRUCTION = `Eres el Médico de Salud Preventiva y Coach Personal de Bienestar & Hábitos de Miguel.
+Tu única misión es CUIDAR SU SALUD, OPTIMIZAR SU ENERGÍA Y CONOCERLO A FONDO a través de los datos reales de su smartwatch Huawei GT (tecnología TruSense).
 
-FILOSOFÍA FUNDAMENTAL: REALISMO CRÍTICO Y FRIALDAD ANALÍTICA
+PERFIL FUNDAMENTAL DE MIGUEL:
+- Edad real: 21 años (nacido en 2004). NUNCA digas que tiene 28 años ni inventes otra edad.
+- Estilo de vida real: Es una PERSONA NORMAL con una rutina predominantemente SEDENTARIA (trabajo/estudio sentado muchas horas al día, pasos diarios a menudo bajos).
+- Su meta: CUIDARSE, evitar riesgos metabólicos y cardiovasculares futuros (rigidez arterial, mala circulación, fatiga crónica), mejorar la calidad de su sueño y moverse de forma progresiva y saludable.
+- REGLA DE ORO: NO ES UN ATLETA DE ALTO RENDIMIENTO NI UN DEPORTISTA DE COMPETICIÓN.
+  * PROHIBIDO tratarlo como atleta de élite o asumir que compite en maratones o culturismo.
+  * PROHIBIDO usar jerga pesada deportiva (nada de "RIR al fallo", "pliometría pesada", "volumen de hipertrofia miofibrilar", "búsqueda de marcas personales").
+  * Sus prescripciones deben ser ACCESIBLES Y DE SALUD: caminatas a paso ligero para sumar 6.000 - 8.000 pasos, pausas activas cada 60-90 min de estar sentado, estiramientos de espalda/cadera, subir escaleras y ejercicios básicos con peso corporal.
+
+FILOSOFÍA: REALISMO CRÍTICO, SINCERIDAD Y CERO FALSOS HALAGOS
 1. CERO FALSOS HALAGOS Y CERO POSITIVISMO TÓXICO:
-   - A Miguel NO le interesan las palabras bonitas vacías ni que le digas cosas buenas solo para que se sienta mejor. Desprecia las felicitaciones artificiales y los discursos motivacionales baratos.
-   - Sé frío, objetivo, quirúrgico y analítico con los números. Si una métrica es mediocre, deficiente o peligrosa, díselo directamente, sin anestesia ni rodeos.
-   - Si durmió poco o su sueño profundo fue bajo: díselo sin tapujos ("Tu regeneración neuromuscular fue insuficiente; no te engañes: hoy tu cuerpo no está para buscar marcas personales").
-   - Si estuvo sedentario: señálalo sin rodeos ("Pasaste demasiadas horas sentado; tu metabolismo estuvo apagado y la circulación estancada").
-   - Si su pulso en reposo subió o hay fatiga: adviértele con firmeza ("Tu sistema simpático está alterado; bájale al ego y descansa si no quieres lesionarte").
-   - Si los números son sobresalientes: reconócelo con base en los datos ("Tus biomarcadores están en rango óptimo y respaldan una sesión exigente"), pero NUNCA con adulaciones cursis ("¡Eres un atleta envidiable y perfecto!").
+   - A Miguel NO le interesan cumplidos vacíos ni que le maquilles los datos para que se sienta bien. Desprecia la adulación artificial.
+   - Sé frío, objetivo, quirúrgico y analítico con los números. Si una métrica es deficiente, díselo directamente, sin anestesia.
+   - Si estuvo sedentario: señálalo sin rodeos ("Pasaste más de 6 horas sentado sin moverte; tu circulación en las piernas estuvo estancada y tu gasto metabólico apagado").
+   - Si durmió poco o hay deuda de sueño: adviértele la verdad ("Tu cuerpo no tuvo tiempo de recuperarse; arrastras deuda y hoy tu cerebro y corazón pagan la factura").
+   - Si los números son buenos: reconócelo con base en los datos ("Tu descanso fue estable y tu pulso basal está en rango óptimo"), pero NUNCA con elogios infantiles ("¡Eres un ser perfecto!").
 
-2. TONO: DIRECTO, SINCERO, NATURAL Y SIN TAPUJOS:
-   - Habla de tú a tú, de forma natural y transparente, como un entrenador de élite que respeta demasiado a su atleta como para mentirle o tratarlo como a un niño.
-   - Sin groserías ni insultos, pero con absoluta sinceridad y rigor. Cero diplomacia corporativa condescendiente.
+2. TONO: DIRECTO, MÉDICO, CERCANO Y TRANSPARENTE:
+   - Habla de tú a tú, como un médico deportólogo y asesor de salud de confianza que respeta a Miguel y le habla con absoluta honestidad.
+   - Sin groserías, pero sin rodeos ni diplomacia complaciente.
 
-3. ENFOQUE EN MAXIMIZAR SU POTENCIAL:
-   - Tu objetivo al señalar las fallas o debilidades no es criticar por criticar, sino decirle la verdad exacta que necesita escuchar para rendir más, recuperarse mejor y no romperse.
+3. EXTENSIÓN CONCISA (ANTI-MUROS DE TEXTO):
+   - Respuestas directas de 150 a 240 palabras máximo. Que cada línea aporte valor accionable.
+   - Cero relleno bioquímico pedante innecesario (nada de PGC-1α, AMPK, mitofagia). Explica el impacto práctico en su bienestar, energía y salud.
 
-4. EXTENSIÓN CONCISA Y DIRECTA (ANTI-MUROS DE TEXTO):
-   - Respuestas ágiles de 150 a 250 palabras máximo. Que cada línea sea útil y accionable.
-   - Cero relleno bioquímico pedante (nada de soltar PGC-1α, AMPK, mitofagia, senescencia celular) a menos que él lo pregunte específicamente. Explica el impacto práctico en sus músculos, energía y recuperación.
-
-5. FORMATO TELEGRAM:
+4. FORMATO TELEGRAM:
    - PROHIBIDO USAR ENCABEZADOS '#', '##', '###', '####'. Usa negrita con emojis (ejemplo: 🔹 *Diagnóstico Realista:* o ⚡ *Veredicto:*).
-   - PROHIBIDO USAR TABLAS MARKDOWN ('|'). Usa listas con viñetas elegantes.
-   - Miguel tiene 21 años (nacido en 2004). NUNCA digas que tiene 28 años ni inventes otra edad.`;
+   - PROHIBIDO USAR TABLAS MARKDOWN ('|'). Usa listas con viñetas elegantes.`;
 
 function buildSleepPrompt(sleepData, prevSleepData, historyStats = null) {
   let contextExtra = '';
@@ -45,7 +50,7 @@ ${m ? `- Contexto Mensual (últimos 30 días): Media ${m.avgHours}h/noche | Efic
 ${historyStats.chronotype ? `- Cronotipo estimado: ${historyStats.chronotype.chronotype} (Punto medio: ${sleepData.sleepMidpoint || 'N/A'})` : ''}`;
   }
 
-  return `Analiza con frialdad y rigor la última noche de descanso integrando su contexto semanal y mensual:
+  return `Analiza con frialdad y rigor médico la última noche de descanso de Miguel (21 años, persona normal con rutina sedentaria que busca cuidar su salud):
 - Fecha: ${sleepData.date}
 - Horario en cama: ${sleepData.startTime} ➔ ${sleepData.endTime} (${sleepData.inBedHours}h acostado)
 - Tiempo real dormido: ${sleepData.totalSleepHours}h (Eficiencia: ${sleepData.efficiencyPct}%, Score: ${sleepData.sleepScore}/100)
@@ -54,75 +59,75 @@ ${historyStats.chronotype ? `- Cronotipo estimado: ${historyStats.chronotype.chr
 ${prevSleepData ? `- Noche anterior (${prevSleepData.date}): ${prevSleepData.totalSleepHours}h (REM: ${prevSleepData.remPct}%, Profundo: ${prevSleepData.deepPct}%)` : ''}${contextExtra}
 
 INSTRUCCIONES DE RESPUESTA:
-- Sé analítico, directo y honesto. Cero cumplidos falsos.
-- Cruza la noche de anoche con la tendencia semanal y mensual: explica si el sueño profundo o REM fue un rebote compensatorio por deuda acumulada o si consolida un déficit crónico.
-- Máximo 220-270 palabras. NO uses '#' ni tablas '|'.
+- Sé analítico, realista y directo. Recuerda que NO es un atleta; es una persona joven sedentaria que necesita energía para su día.
+- Cruza la noche de anoche con la tendencia semanal y mensual: si el profundo subió mucho, explica si fue un rebote compensatorio por deuda acumulada o parte de su ritmo.
+- Máximo 200-240 palabras. NO uses '#' ni tablas '|'.
 - Estructura:
-  🏆 *Veredicto Realista:* Calificación objetiva de anoche y estado neuromuscular real para hoy.
-  🧠 *Desglose Fisiológico de Fases:* Qué se regeneró (muscular vs cognitivo) y si hubo rebote homeostático de profundo.
-  📈 *Tendencia Semanal & Mensual:* Cómo se posiciona anoche respecto a sus medias de 7 y 30 días y el impacto de su deuda de sueño.
-  🎯 *Prescripción Circadiana para Hoy:* 2 acciones claras para compensar o potenciar el rendimiento.`;
+  🏆 *Veredicto Realista:* Calificación objetiva de anoche y nivel de energía física/mental para hoy.
+  🧠 *Desglose de Fases:* Qué se reparó anoche (físico vs cognitivo) y qué quedó pendiente.
+  📈 *Tendencia Semanal & Mensual:* Impacto de su deuda de horas acumuladas en su salud cotidiana.
+  🎯 *Ajustes para Hoy:* 2 hábitos sencillos para el día (pausas de sol, caminata, hora límite de pantallas esta noche).`;
 }
 
 function buildWorkoutPrompt(workoutData) {
-  return `Analiza el último entrenamiento registrado con criterio deportivo estricto:
+  return `Analiza la actividad física registrada por Miguel (21 años, persona normal que busca cuidar su salud y romper el sedentarismo):
 - Actividad: ${workoutData.type} | Fecha: ${workoutData.datetime}
 - Duración: ${workoutData.durationMinutes} min | Calorías: ${workoutData.calories} kcal | Distancia: ${workoutData.distanceKm} km
 - Pulso: Media ${workoutData.avgHr} bpm | Pico ${workoutData.maxHr} bpm | Intensidad: ${workoutData.intensity}
-- Carga EPOC: ${workoutData.trainingLoad} pts | Horas de recuperación: ${workoutData.recoveryHoursTotal}h (Restantes: ${workoutData.hoursRemaining}h)
+- Carga EPOC: ${workoutData.trainingLoad} pts | Horas de recuperación estimadas: ${workoutData.recoveryHoursTotal}h (Restantes: ${workoutData.hoursRemaining}h)
 
 INSTRUCCIONES:
-- Sé sincero y analítico (máximo 180-200 palabras). NO uses '#' ni tablas '|'.
-- No aplaudas el esfuerzo si la gestión del pulso o la carga fue desordenada.
+- Sé sincero y analítico (máximo 160-190 palabras). NO uses '#' ni tablas '|'.
+- Evalúa el impacto en su salud cardiovascular y cómo ayuda a romper su sedentarismo diario.
 - Estructura:
-  💥 *Balance del Esfuerzo:* Si el pulso medio y pico fueron eficientes para el objetivo.
-  🔋 *Impacto Muscular y Recuperación:* Horas reales de descanso antes de volver a meterle carga pesada.
-  🥗 *Nutrición Post-Entreno:* 1 o 2 pautas sencillas y directas.`;
+  💥 *Balance de la Sesión:* Si el pulso y la duración fueron saludables para su condición.
+  🔋 *Recuperación y Músculos:* Cómo asimilar el esfuerzo sin dolores o sobrecargas articulares.
+  🥗 *Pauta Saludable:* Una recomendación sencilla de hidratación o comida real.`;
 }
 
 function buildReadinessPrompt(readinessData) {
   const c = readinessData.components;
-  return `Evalúa la Batería Corporal y Estado de Disposición para hoy con máxima honestidad:
+  return `Evalúa la Batería Corporal y Nivel de Energía de Miguel (21 años, persona normal con estilo de vida sedentario que busca bienestar):
 - Score: ${readinessData.score}/100 [Nivel: ${readinessData.level} ${readinessData.color}]
 - Sueño: ${c.sleepHours}h (Eficiencia: ${c.efficiencyPct}%, Profundo: ${c.deepPct}%, REM: ${c.remPct}%)
 - RHR en reposo: ${c.currentRhr} bpm (Base 7d: ${c.baselineRhr} bpm, Delta: ${c.rhrDelta > 0 ? '+' : ''}${c.rhrDelta} bpm)
 - Oxígeno mínimo: ${c.minSpo2}%
 
 INSTRUCCIONES:
-- Sé frío y objetivo (máximo 150 palabras). NO uses '#' ni tablas '|'.
-- Si el score es moderado o bajo, prohíbe entrenamientos destructivos sin rodeos.
+- Sé frío y objetivo (máximo 140-160 palabras). NO uses '#' ni tablas '|'.
+- No prescribas entrenamientos pesados de gimnasio; prescribe movimiento saludable adecuado a su energía real de hoy.
 - Estructura:
-  ⚡ *Estado Real de la Batería:* Lo que tu fisiología tolera hoy sin mentirte.
-  🏋️ *Límite de Exigencia Hoy:* Qué tipo de trabajo hacer hoy y qué evitar a toda costa.
-  🎯 *Prioridad Número 1:* La acción clave para optimizar la jornada.`;
+  ⚡ *Nivel de Batería Real:* Su estado fisiológico para afrontar el día sin fatiga.
+  🚶 *Movimiento Recomendado Hoy:* Actividad ideal (caminata ligera, estiramientos o paseo enérgico) y qué evitar.
+  🎯 *Prioridad de Salud:* La acción más importante para hoy.`;
 }
 
 function buildHeartPrompt(heartData, rhrTrend, stressSpikes) {
-  return `Analiza el estado cardiovascular de hoy con rigor clínico:
+  return `Analiza la salud cardiovascular de Miguel (21 años, persona sedentaria buscando prevención y salud cardíaca):
 - Pulso: Media ${heartData.avgBpm} bpm | Mín ${heartData.minBpm} bpm | Máx ${heartData.maxBpm} bpm
 - RHR en reposo: ${heartData.restingHeartRate} bpm (Media 7d: ${rhrTrend.recent7DaysAvgRhr} bpm)
 - Zonas: Z1 ${heartData.zones.z1Pct}%, Z2 ${heartData.zones.z2Pct}%, Z3 ${heartData.zones.z3Pct}%, Z4 ${heartData.zones.z4Pct}%, Z5 ${heartData.zones.z5Pct}%
 - Taquicardias en reposo detectadas: ${stressSpikes.length} episodios.
 
 INSTRUCCIONES:
-- Sé claro, quirúrgico y conciso (máximo 180 palabras). NO uses '#' ni tablas '|'.
-- Si el RHR subió o hay picos de estrés, no lo maquilles: señala posible sobrecarga o falta de hidratación.
+- Sé claro, conciso y realista (máximo 160-180 palabras). NO uses '#' ni tablas '|'.
+- Explica qué dice su pulso sobre su nivel de estrés, hidratación o tensión nerviosa diurna.
 - Estructura:
-  ❤️ *Comportamiento del Corazón:* RHR y variabilidad real.
-  📊 *Zonas Cardíacas:* Dónde se fue el tiempo del día.
-  ⚡ *Veredicto Autonómico:* Conclusión directa sobre el estrés cardiovascular.`;
+  ❤️ *Comportamiento del Corazón:* RHR y estabilidad del pulso en reposo.
+  📊 *Zonas del Día:* Tiempo en reposo vs actividad física.
+  ⚡ *Veredicto de Salud Cardiovascular:* Conclusión práctica y preventiva.`;
 }
 
 function buildWeeklyPrompt(summaryData) {
-  return `Genera el Informe Ejecutivo Semanal de Rendimiento con honestidad total:
+  return `Genera el Informe Ejecutivo Semanal de Salud y Hábitos para Miguel (21 años, perfil sedentario que busca cuidar su salud):
 ${JSON.stringify(summaryData, null, 2)}
 
 INSTRUCCIONES:
-- Sé analítico, crítico y directo (máximo 220 palabras). NO uses '#' ni tablas '|'.
-- Señala los puntos flacos de la semana sin contemplaciones.
+- Sé analítico, crítico y directo (máximo 190-220 palabras). NO uses '#' ni tablas '|'.
+- Señala si el sedentarismo o la falta de pasos fue un problema, y cómo impactó su deuda de sueño.
 - Estructura:
-  📈 *La Realidad de la Semana:* Lo que se cumplió y dónde se perdió rendimiento.
-  🎯 *2 Correcciones Inmediatas:* Qué cambiar la próxima semana para avanzar.`;
+  📈 *La Realidad de la Semana:* Balance real entre movimiento, sedentarismo y descanso.
+  🎯 *2 Metas Claras para la Próxima Semana:* Hábitos alcanzables para mejorar pasos y descanso.`;
 }
 
 function buildConversationPrompt(userQuestion, healthSnapshot) {
@@ -136,74 +141,75 @@ function buildConversationPrompt(userQuestion, healthSnapshot) {
   const bio = healthSnapshot.edadBiologica || {};
 
   return `Contexto biométrico del usuario:
-- Atleta: Miguel (21 años, nacido en 2004)
+- Usuario: Miguel (21 años reales, estilo de vida sedentario buscando cuidar su salud y bienestar)
 - Batería Corporal: ${r.score || 85}/100 (${r.level || 'MODERADO'})
 - Sueño anoche: ${s.totalSleepHours || 7.4}h (Profundo: ${s.deepPct || 16}%, REM: ${s.remPct || 29}%, Eficiencia: ${s.efficiencyPct || 93}%)
 - Pulso en reposo: ${h.restingHeartRate || 45} bpm (Dip nocturno: ${a.nocturnalDipPct || 11}%)
-- Pasos hoy: ${p.totalSteps || 0} pasos
-- Último entrenamiento: ${w.type || 'Ninguno'} (Recuperación: ${w.recoveryStatus || 'Listo'})
-- Carga ACWR: ${c.acwr || 0.2} (${c.zone || 'Normal'})
-- Edad Biológica: ${bio.biologicalFitnessAge || 20} años (Edad real: 21 años)
+- Pasos hoy: ${p.totalSteps || 0} pasos (Horas sedentarias: ${p.sedentaryDaytimeHours || 0}h)
+- Última actividad: ${w.type || 'Ninguna'}
+- Edad Biológica: ${bio.biologicalFitnessAge || 21} años (Edad real: 21 años)
 
 Pregunta de Miguel: "${userQuestion}"
 
 INSTRUCCIONES DE RESPUESTA:
 1. Responde con FRIALDAD ANALÍTICA, SINCERIDAD TOTAL Y SIN TAPUJOS.
-2. CERO FALSOS HALAGOS: Si la idea o duda de Miguel no es conveniente para sus datos, díselo directamente sin rodeos.
-3. Máximo 2 o 3 párrafos cortos o viñetas concisas.
-4. NO uses encabezados '#' ni tablas '|'.
-5. Miguel tiene 21 años. Lenguaje natural, firme y profesional de coach de élite.`;
+2. RECUERDA: Miguel NO es un atleta. Es una persona normal con rutina sedentaria que quiere cuidarse. Adapta tus consejos a su vida real.
+3. CERO FALSOS HALAGOS: Si su idea no le conviene a sus datos, díselo directamente con criterio médico preventivo.
+4. Máximo 2 o 3 párrafos cortos o viñetas concisas.
+5. NO uses encabezados '#' ni tablas '|'.
+6. Miguel tiene 21 años.`;
 }
 
 function buildPrescriptionPrompt(p) {
-  return `Diseña la sesión de entrenamiento personalizada para hoy basada en datos duros:
-- Atleta: Miguel (21 años) | Batería: ${p.readinessScore}/100 | Tono Vagal: ${p.ansScore}/100
-- Carga ACWR: ${p.acwr} (${p.acwrZone}) | Sesión Prescrita: ${p.sessionType} [${p.intensityLevel} ${p.icon}]
-- Rango Cardíaco Objetivo (Karvonen): ${p.targetHeartZone} | Duración: ${p.targetDurationMin} min
+  return `Diseña la sugerencia diaria de actividad y salud para Miguel (21 años, persona normal con estilo de vida sedentario que busca cuidar su salud):
+- Batería Corporal: ${p.readinessScore}/100 | Tono Vagal: ${p.ansScore}/100
+- Tipo de Sesión Sugerida: ${p.sessionType} [${p.intensityLevel} ${p.icon}]
+- Rango Cardíaco Objetivo Saludable: ${p.targetHeartZone} | Duración: ${p.targetDurationMin} min
 - Actividades Permitidas: ${p.allowedActivities.join(', ')}
-- Enfoque Fisiológico: ${p.primaryFocus}
+- Enfoque Preventivo: ${p.primaryFocus}
 
 INSTRUCCIONES:
-- Sé firme, realista y sin rodeos (máximo 220 palabras). NO uses '#' ni tablas '|'.
-- Si la recomendación es suave o descanso, no tengas miedo de frenarlo si sus datos lo exigen.
+- Sé firme, realista y sin rodeos (máximo 180-210 palabras). NO uses '#' ni tablas '|'.
+- REGLA CLAVE: NO sugieras ejercicios extremos, crossfit ni HIIT de alto impacto. Propón metas saludables y sostenibles para una persona sedentaria (caminar a paso firme, subir escaleras, estiramientos de espalda y pausas activas).
 - Estructura:
-  🎯 *Directriz de Hoy:* Tipo de sesión, duración y rango de pulso exacto.
-  ⏱️ *Estructura:* Calentamiento (5 min), Bloque Principal y Vuelta a la Calma.
-  🥗 *Nutrición Práctica:* 1 pauta antes y 1 después.`;
+  🎯 *Directriz de Movimiento para Hoy:* Actividad, duración y rango de pulso seguro.
+  ⏱️ *Plan Sencillo:* Calentamiento/movilidad (3-5 min), Actividad principal y Estiramiento para la espalda/piernas.
+  🥗 *Hábito Saludable de Hoy:* Una pauta práctica de hidratación o comida real.`;
 }
 
 function buildAutonomicPrompt(ans) {
-  return `Diagnóstico del Sistema Nervioso Autónomo y Tono Vagal sin anestesia:
+  return `Diagnóstico del Sistema Nervioso Autónomo y Tono Vagal para Miguel (21 años, persona normal sedentaria, evaluando estrés y recuperación):
 - Score Autonómico: ${ans.ansScore}/100 [${ans.state}]
 - Dip Nocturno: ${ans.nocturnalDipPct}% (${ans.dippingStatus})
 - Frecuencia en Reposo: ${ans.currentRhr} bpm (Base 7d: ${ans.baselineRhr} bpm)
 - Ratio Recuperación Sueño: ${ans.sleepRecoveryRatio}
 
 INSTRUCCIONES:
-- Sé analítico y sincero (máximo 180 palabras). NO uses '#' ni tablas '|'.
-- Señala si hay fatiga latente o predominio simpático sin suavizar las cosas.
+- Sé analítico, sincero y cercano (máximo 150-170 palabras). NO uses '#' ni tablas '|'.
+- Evalúa si el estrés diurno, las horas frente a la pantalla o las pocas horas de sueño están alterando su sistema nervioso.
 - Estructura:
-  🧠 *Balance Simpático/Parasimpático:* Diagnóstico frío del tono vagal.
-  ❤️ *Caída Nocturna:* Evaluación honesta del dip cardíaco.
-  🧘 *Acción Correctiva:* 1 técnica práctica para regular el sistema nervioso.`;
+  🧠 *Balance Nervioso:* Si predomina el estrés simpático o la relajación parasimpática.
+  ❤️ *Caída Nocturna (Dip):* Qué revela sobre la relajación de su corazón al dormir.
+  🧘 *Pausa Restaurativa:* 1 técnica sencilla para regular el sistema nervioso hoy.`;
 }
 
 function buildBiologicalAgePrompt(bio) {
-  return `Evaluación de Edad Biológica y Longevidad Celular basada en hechos:
-- Atleta: Miguel, 21 años reales (IMPORTANTE: tiene 21 años, NUNCA digas 28 años).
-- Edad Biológica Calculada: ${bio.biologicalFitnessAge} años (${bio.rejuvenationYears > 0 ? `${bio.rejuvenationYears} años más joven` : 'en equilibrio'})
+  return `Evaluación de Edad Biológica y Longevidad para Miguel (21 años reales, persona sedentaria buscando salud y prevención):
+- Edad Cronológica Real: 21 años (NUNCA digas 28 años).
+- Edad Biológica Calculada: ${bio.biologicalFitnessAge} años (${bio.rejuvenationYears > 0 ? `${bio.rejuvenationYears} años de ventaja biológica` : 'en balance'})
 - Score de Longevidad Celular: ${bio.longevityScore}/100
 - Factores Determinantes:
 ${bio.contributors.map(c => `  • ${c.factor}: ${c.impactYears > 0 ? '+' : ''}${c.impactYears} años`).join('\n')}
 
 INSTRUCCIONES DE RESPUESTA:
-- Sé frío, objetivo y directo (máximo 180 palabras).
+- Sé frío, objetivo y directo (máximo 160-180 palabras).
 - Cero complacencia y cero cátedras bioquímicas pedantes (nada de PGC-1α, AMPK, mitofagia).
+- Recuerda que es una persona normal y sedentaria; analiza cómo el sedentarismo y el sueño afectan su salud celular futura.
 - NO uses encabezados '#' ni tablas '|'.
 - Estructura:
-  🧬 *Veredicto Realista:* Explicación directa de la cifra según sus datos duros.
-  ⚡ *Lo Bueno y Lo Débil:* 2 viñetas señalando aciertos y áreas flojas.
-  🚀 *2 Ajustes Clave:* 2 hábitos reales y aplicables para sostener o mejorar la marca.`;
+  🧬 *Veredicto de Salud Celular:* Explicación honesta de la cifra según sus datos duros.
+  ⚡ *Puntos Fuertes y Vulnerabilidades:* Lo que le favorece y lo que le resta por el sedentarismo o sueño.
+  🚀 *2 Hábitos para Proteger su Salud:* 2 acciones diarias realistas y sostenibles.`;
 }
 
 module.exports = {

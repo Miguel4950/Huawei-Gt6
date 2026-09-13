@@ -70,10 +70,10 @@ class CrossAnalytics {
     let recommendation = 'Tu carga de entrenamiento está en perfecto equilibrio con tu capacidad adaptativa.';
 
     if (acwr < 0.8) {
-      zone = '⚪ Sub-entrenamiento';
+      zone = '⚪ Carga Baja / Inactividad';
       statusColor = '⚪';
-      riskFactor = 'Bajo (Riesgo de desadaptación física)';
-      recommendation = 'Tu volumen semanal reciente es bajo. Puedes incrementar progresivamente la intensidad.';
+      riskFactor = 'Bajo (Riesgo de desacondicionamiento por sedentarismo)';
+      recommendation = 'Tu volumen de movimiento reciente es bajo. Sal a caminar 30-40 min a paso vivo para activar tu circulación.';
     } else if (acwr >= 0.8 && acwr <= 1.3) {
       zone = '🟢 Zona Óptima ("Sweet Spot")';
       statusColor = '🟢';
@@ -211,51 +211,51 @@ class CrossAnalytics {
       z5MaxEffort: '> 172 bpm'
     };
 
-    let sessionType = 'Base Aeróbica en Zona 2';
-    let intensityTag = 'Moderada (Construcción Mitocondrial)';
-    let targetHeartZone = `Zona 2 Aeróbica (${karvonen.z2AerobicBase})`;
-    let targetDurationMin = 45;
-    let allowedActivities = ['Caminata a paso ligero con inclinación', 'Trote suave conversacional', 'Ciclismo indoor o ruta suave', 'Natación aeróbica continua'];
-    let primaryFocus = 'Optimizar biogénesis mitocondrial y oxidación de lípidos sin acumulación de lactato.';
-    let nutritionAdvice = '1.5L de agua con electrolitos. Carbohidratos complejos 2h antes y 25g de proteína al culminar.';
+    let sessionType = 'Paseo Diario y Ruptura de Sedentarismo';
+    let intensityTag = 'Ligera a Moderada (Salud Cardiovascular)';
+    let targetHeartZone = `Zona 1 a Zona 2 (${karvonen.z1Recovery} a ${karvonen.z2AerobicBase})`;
+    let targetDurationMin = 30;
+    let allowedActivities = ['Caminata continua buscando alcanzar 6.000 - 8.000 pasos', 'Pausas activas cada 60 min de trabajo sentado', 'Estiramientos de psoas y espalda lumbar'];
+    let primaryFocus = 'Contrarrestar las horas sentado, oxigenar tejidos y activar la circulación sin impacto articular.';
+    let nutritionAdvice = '1.5L - 2L de agua fresca al día. Reducir ultraprocesados y cenar liviano.';
     let intensityLevel = 'MODERADA';
     let icon = '🟡';
 
-    // Case 1: High Fatigue / ACWR Danger / High Sympathetic Overdrive
-    if (readiness.score < 60 || acwrData.acwr >= 1.5 || (latestWorkout && latestWorkout.hoursRemaining > 16 && readiness.score < 70)) {
-      sessionType = 'Descanso Activo / Regenerativo';
-      intensityTag = 'Muy Baja (Día de Restauración Biológica)';
+    // Case 1: High Fatigue / ACWR Danger / Sleep Debt
+    if (readiness.score < 65 || (latestWorkout && latestWorkout.hoursRemaining > 16 && readiness.score < 70)) {
+      sessionType = 'Descanso Activo / Paseo Suave y Movilidad';
+      intensityTag = 'Muy Baja (Recuperación y Alivio Postural)';
       targetHeartZone = `Zona 1 de Recuperación (${karvonen.z1Recovery})`;
-      targetDurationMin = 25;
-      allowedActivities = ['Caminata relajante al aire libre', 'Sesión de movilidad articular y yoga suave', 'Estiramientos miofasciales estáticos', 'Respiración diafragmática 4-7-8'];
-      primaryFocus = 'Aclaramiento de metabolitos musculares, estimulación del drenaje linfático y recarga del sistema nervioso parasimpático.';
-      nutritionAdvice = 'Hidratación abundante con magnesio y zinc por la noche. Evita estimulantes (cafeína) después de las 14:00.';
+      targetDurationMin = 20;
+      allowedActivities = ['Paseo relajado de 15-20 min', 'Pausas activas de 2 min cada 60 min sentado', 'Estiramientos suaves de cuello, hombros y espalda baja', 'Respiración diafragmática'];
+      primaryFocus = 'Aliviar la tensión postural de estar sentado, favorecer el retorno venoso y recargar el sistema parasimpático.';
+      nutritionAdvice = 'Buena hidratación, cena ligera antes de las 20:30 e infusión relajante para dormir temprano.';
       intensityLevel = 'BAJA / REGENERATIVA';
       icon = '🔴';
     } 
-    // Case 2: Peak Readiness / High Vagal Tone / Safe ACWR
-    else if (readiness.score >= 85 && ans.ansScore >= 75 && acwrData.acwr <= 1.35) {
-      sessionType = 'Sesión de Máxima Exigencia / HIIT o Fuerza Pesada';
-      intensityTag = 'Alta / Máxima (Pico de Supercompensación)';
-      targetHeartZone = `Zona 4 de Umbral (${karvonen.z4Threshold}) a Zona 5 (${karvonen.z5MaxEffort})`;
-      targetDurationMin = 50;
-      allowedActivities = ['Intervalos HIIT (4x4 min al 90% FC)', 'Entrenamiento de fuerza hipertrofia pesada (RPE 8-9)', 'Series de sprints en cuesta o bicicleta', 'Trote de ritmo umbral (Tempo Run)'];
-      primaryFocus = 'Expandir el VO2max, reclutar fibras musculares de contracción rápida tipo II y elevar el umbral anaeróbico.';
-      nutritionAdvice = '30-45g de carbohidratos de asimilación media antes del entreno. 30g de proteína de suero + 3g de creatina post-entrenamiento.';
-      intensityLevel = 'ALTA';
-      icon = '🟢';
-    } 
-    // Case 3: Good Condition -> Aerobic Base or Moderate Resistance
-    else if (readiness.score >= 70) {
-      sessionType = 'Base Aeróbica en Zona 2 & Hipertrofia Moderada';
-      intensityTag = 'Moderada (Eficiencia Metabólica)';
-      targetHeartZone = `Zona 2 Aeróbica (${karvonen.z2AerobicBase}) a Zona 3 (${karvonen.z3TempoCardio})`;
-      targetDurationMin = 45;
-      allowedActivities = ['Cardio Zona 2 en el que puedas mantener una conversación fluida', 'Musculación en rangos de 10-12 repeticiones', 'Calistenia controlada'];
-      primaryFocus = 'Construir resistencia cardiovascular y capilarización muscular sin comprometer la recuperación de mañana.';
-      nutritionAdvice = 'Comida balanceada con grasas saludables (aguacate, frutos secos) y proteína limpia.';
+    // Case 2: Peak Readiness / High Vagal Tone
+    else if (readiness.score >= 85 && ans.ansScore >= 75) {
+      sessionType = 'Caminata Enérgica & Movilidad Funcional';
+      intensityTag = 'Moderada Saludable (Activación Metabólica)';
+      targetHeartZone = `Zona 2 Saludable (${karvonen.z2AerobicBase})`;
+      targetDurationMin = 40;
+      allowedActivities = ['Caminata a paso ágil continuo (Power Walking)', 'Subir y bajar escaleras a ritmo constante', 'Sentadillas suaves con peso corporal (2x10) y movilidad articular', 'Paseo en bicicleta suave a ritmo conversacional'];
+      primaryFocus = 'Activar el metabolismo basal, estimular la circulación en piernas tras horas de inactividad y sumar pasos de calidad.';
+      nutritionAdvice = 'Una pieza de fruta fresca antes del paseo, buena hidratación (2L de agua) y comida con proteína limpia.';
       intensityLevel = 'MODERADA';
       icon = '🟢';
+    } 
+    // Case 3: Standard Readiness (65-84)
+    else {
+      sessionType = 'Paseo Diario para Romper Sedentarismo';
+      intensityTag = 'Ligera a Moderada (Salud Cardiovascular)';
+      targetHeartZone = `Zona 1 a Zona 2 (${karvonen.z1Recovery} a ${karvonen.z2AerobicBase})`;
+      targetDurationMin = 30;
+      allowedActivities = ['Caminata continua para alcanzar 6.000 - 8.000 pasos diarios', 'Pausas activas de 3 minutos cada hora de trabajo sentado', 'Estiramientos de cadera y espalda lumbar'];
+      primaryFocus = 'Aliviar la pesadez en las piernas, activar el consumo de glucosa y mantener flexible la columna.';
+      nutritionAdvice = 'Hidratación regular con agua mineral y evitar bebidas azucaradas o energizantes.';
+      intensityLevel = 'LIGERA / MODERADA';
+      icon = '🟡';
     }
 
     return {
@@ -275,7 +275,7 @@ class CrossAnalytics {
       primaryFocus,
       nutritionAdvice,
       residualWorkoutFatigue: latestWorkout ? `${latestWorkout.hoursRemaining}h pendientes (${latestWorkout.type})` : 'Ninguna',
-      clinicalRationale: `Prescripción fundamentada en: Batería Corporal (${readiness.score}/100), Tono Vagal (${ans.ansScore}/100) y Ratio de Carga ACWR (${acwrData.acwr}).`
+      clinicalRationale: `Prescripción de salud preventiva basada en: Batería Corporal (${readiness.score}/100), Tono Vagal (${ans.ansScore}/100) y tiempo sedentario acumulado.`
     };
   }
 
@@ -298,51 +298,50 @@ class CrossAnalytics {
     // Factor 1: Resting Heart Rate (Cardiovascular Efficiency)
     const rhr = rhrTrend.recent7DaysAvgRhr || (heart ? heart.restingHeartRate : 60);
     if (rhr < 52) {
-      delta -= 4.0;
-      contributors.push({ factor: 'Frecuencia Cardíaca en Reposo Atlética (< 52 bpm)', impactYears: -4.0 });
-    } else if (rhr <= 60) {
       delta -= 2.5;
-      contributors.push({ factor: 'RHR Saludable y Eficiente (52-60 bpm)', impactYears: -2.5 });
+      contributors.push({ factor: 'Frecuencia Cardíaca en Reposo Eficiente (< 52 bpm)', impactYears: -2.5 });
+    } else if (rhr <= 60) {
+      delta -= 1.5;
+      contributors.push({ factor: 'RHR Saludable y Estable (52-60 bpm)', impactYears: -1.5 });
     } else if (rhr <= 70) {
       delta -= 0.5;
       contributors.push({ factor: 'RHR en rango normal (61-70 bpm)', impactYears: -0.5 });
     } else {
-      delta += 2.5;
-      contributors.push({ factor: 'RHR elevado (> 70 bpm) — Sobrecarga cardíaca', impactYears: +2.5 });
+      delta += 2.0;
+      contributors.push({ factor: 'RHR elevado (> 70 bpm) — Tensión cardíaca', impactYears: +2.0 });
     }
 
-    // Factor 2: Daily Step Average (Metabolic & Endothelial Health)
+    // Factor 2: Daily Steps & Sedentarism Impact
     const avgSteps = weeklySteps.avgDailySteps || 0;
     if (avgSteps >= 10000) {
-      delta -= 3.0;
-      contributors.push({ factor: 'Volumen diario activo sobresaliente (>= 10.000 pasos)', impactYears: -3.0 });
-    } else if (avgSteps >= 7000) {
-      delta -= 1.5;
-      contributors.push({ factor: 'Volumen diario saludable (7.000 - 9.999 pasos)', impactYears: -1.5 });
-    } else if (avgSteps < 4000) {
-      delta += 2.0;
-      contributors.push({ factor: 'Patrón sedentario detectado (< 4.000 pasos/día)', impactYears: +2.0 });
+      delta -= 2.0;
+      contributors.push({ factor: 'Volumen activo diario alto (>= 10.000 pasos)', impactYears: -2.0 });
+    } else if (avgSteps >= 7500) {
+      delta -= 1.0;
+      contributors.push({ factor: 'Volumen diario saludable (7.500 - 9.999 pasos)', impactYears: -1.0 });
+    } else if (avgSteps < 6000) {
+      delta += 1.5;
+      contributors.push({ factor: `Sedentarismo diurno / Pasos bajos (${avgSteps.toLocaleString()} pasos/día)`, impactYears: +1.5 });
     }
 
-    // Factor 3: Sleep Architecture & Deep Sleep (Cellular Rejuvenation)
-    if (sleep) {
-      if (sleep.efficiencyPct >= 88 && sleep.deepPct >= 16) {
-        delta -= 2.0;
-        contributors.push({ factor: 'Alta eficiencia de sueño y regeneración profunda', impactYears: -2.0 });
-      } else if (sleep.efficiencyPct < 75 || sleep.deepPct < 10) {
-        delta += 1.5;
-        contributors.push({ factor: 'Sueño fragmentado o déficit de fase profunda', impactYears: +1.5 });
-      }
+    // Factor 3: Sleep Architecture & Sleep Debt
+    const sleepDebt = sleepEngine.calculateSleepDebt(8.0);
+    if (sleepDebt && sleepDebt.totalDebtHours >= 4.0) {
+      delta += 1.5;
+      contributors.push({ factor: `Déficit acumulado de descanso (-${sleepDebt.totalDebtHours}h en 7 días)`, impactYears: +1.5 });
+    } else if (sleep && sleep.efficiencyPct >= 88 && sleep.deepPct >= 16) {
+      delta -= 1.0;
+      contributors.push({ factor: 'Alta eficiencia de sueño y descanso profundo', impactYears: -1.0 });
     }
 
-    // Factor 4: Nocturnal Oxygenation (Mitochondrial Integrity)
+    // Factor 4: Nocturnal Oxygenation
     if (oxy) {
       if (oxy.minSpo2 >= 95 && oxy.dropsBelow95Count === 0) {
-        delta -= 1.0;
-        contributors.push({ factor: 'Oxigenación tisular impecable (SpO2 >= 95%)', impactYears: -1.0 });
+        delta -= 0.5;
+        contributors.push({ factor: 'Oxigenación tisular estable (SpO2 >= 95%)', impactYears: -0.5 });
       } else if (oxy.dropsBelow90Count > 0) {
         delta += 2.0;
-        contributors.push({ factor: 'Microdesaturaciones de oxígeno detectadas', impactYears: +2.0 });
+        contributors.push({ factor: 'Microdesaturaciones de oxígeno nocturnas', impactYears: +2.0 });
       }
     }
 
@@ -350,14 +349,19 @@ class CrossAnalytics {
     const rejuvenationYears = parseFloat((CHRONO_AGE_REF - bioAge).toFixed(1));
     const longevityScore = Math.min(100, Math.max(0, Math.round(80 + (rejuvenationYears * 3.5))));
 
+    let verdict = `⚖️ Tu edad biológica coincide con tu edad real (${CHRONO_AGE_REF} años). Tu buen pulso compensa el sedentarismo, pero necesitas moverte más.`;
+    if (rejuvenationYears > 0.5) {
+      verdict = `🌟 Tienes una ligera ventaja biológica (+${rejuvenationYears} años más joven), respaldada por tu pulso eficiente.`;
+    } else if (rejuvenationYears < -0.5) {
+      verdict = `⚠️ El sedentarismo y la deuda de descanso están envejeciendo prematuramente tu metabolismo (+${Math.abs(rejuvenationYears)} años).`;
+    }
+
     return {
       chronologicalReferenceAge: CHRONO_AGE_REF,
       biologicalFitnessAge: bioAge,
       rejuvenationYears,
       longevityScore,
-      verdict: rejuvenationYears > 0 
-        ? `🔥 ¡Fisiológicamente tienes ${rejuvenationYears} años MENOS que tu edad cronológica!` 
-        : `⚠️ Tu edad biológica coincide con tu edad cronológica o requiere optimización de hábitos.`,
+      verdict,
       contributors
     };
   }

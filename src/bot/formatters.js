@@ -82,7 +82,7 @@ function formatWorkoutReport(workout, aiText = '') {
   msg += `• *Estado Actual:* *${workout.recoveryStatus}*\n\n`;
 
   if (aiText) {
-    msg += `🩺 *Evaluación del Entrenador (Gemini 3.8 Flash):*\n${aiText}\n`;
+    msg += `🩺 *Evaluación del Coach de Salud (Gemini 3.8 Flash):*\n${aiText}\n`;
   }
 
   return msg;
@@ -283,7 +283,7 @@ function splitMessage(text, maxLength = 3900) {
 }
 
 function formatPrescriptionReport(p, aiText = '') {
-  let msg = `🏋️‍♂️ *PRESCRIPCIÓN DIARIA DE ENTRENAMIENTO*\n\n`;
+  let msg = `🏃 *PRESCRIPCIÓN DE ACTIVIDAD FÍSICA & SALUD*\n\n`;
   msg += `⚡ *Batería Corporal:* *${p.readinessScore}/100* (${p.readinessLevel})\n`;
   msg += `🧠 *Tono Vagal / Autónomo:* *${p.ansScore}/100*\n`;
   msg += `📈 *Carga ACWR:* *${p.acwr}* (${p.acwrZone})\n\n`;
@@ -292,11 +292,11 @@ function formatPrescriptionReport(p, aiText = '') {
   msg += `❤️ *Frecuencia Cardíaca Objetivo:* *${p.targetHeartZone}*\n`;
   msg += `⏱️ *Duración Recomendada:* *${p.targetDurationMin} minutos*\n`;
   msg += `🏃 *Actividades Sugeridas:* ${p.allowedActivities.join(', ')}\n\n`;
-  msg += `💡 *Enfoque Fisiológico:* ${p.primaryFocus}\n`;
-  msg += `🥗 *Directriz Nutricional:* ${p.nutritionAdvice}\n\n`;
+  msg += `💡 *Enfoque Preventivo:* ${p.primaryFocus}\n`;
+  msg += `🥗 *Directriz de Hábitos:* ${p.nutritionAdvice}\n\n`;
 
   if (aiText) {
-    msg += `🩺 *Estructura Detallada de la Sesión (Gemini Coach):*\n${aiText}\n`;
+    msg += `🩺 *Guía de Movimiento y Hábitos (Gemini 3.8 Flash):*\n${aiText}\n`;
   }
 
   return msg;
@@ -339,13 +339,13 @@ function formatBiologicalAgeReport(bio, aiText = '') {
 }
 
 function formatAcwrReport(acwrData) {
-  let msg = `📈 *CONTROL DE CARGA DE ENTRENAMIENTO (ACWR)*\n\n`;
+  let msg = `📈 *CONTROL DE ACTIVIDAD & CARGA FÍSICA (ACWR)*\n\n`;
   msg += `⚖️ *Ratio Agudo:Crónico (ACWR):* *${acwrData.acwr}* ${acwrData.statusColor}\n`;
   msg += `🎯 *Zona de Rendimiento:* *${acwrData.zone}*\n`;
   msg += `⚡ *Carga Aguda (Últimos 7 días):* *${acwrData.acuteLoad} pts*\n`;
   msg += `🏋️ *Carga Crónica Base (Media semanal):* *${acwrData.chronicLoadWeeklyAvg} pts/sem*\n`;
   msg += `🛡️ *Riesgo Lesional Estimado:* *${acwrData.riskFactor}*\n\n`;
-  msg += `💡 *Directriz Deportiva:* ${acwrData.recommendation}\n`;
+  msg += `💡 *Directriz de Movimiento:* ${acwrData.recommendation}\n`;
 
   return msg;
 }

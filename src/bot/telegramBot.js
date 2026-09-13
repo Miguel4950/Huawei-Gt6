@@ -178,13 +178,13 @@ class HealthTelegramBot {
         `• /comodormi — Diagnóstico de sueño con IA (última noche + semana + mes)\n` +
         `• /hoy — Tablero de mando 360° con todas tus métricas de hoy\n` +
         `• /bateria (o /readiness) — Semáforo de energía y preparación física (0-100)\n` +
-        `• /prescripcion (o /plan_hoy) — Sesión de entrenamiento personalizada para hoy\n` +
+        `• /prescripcion (o /plan_hoy) — Guía de actividad física y hábitos saludables para hoy\n` +
         `• /pregunta [tu duda] — Consulta libre a tu Coach IA con tu telemetría\n\n` +
-        `🏋️ *2. Rendimiento Deportivo & Prevención de Lesiones:*\n` +
-        `• /acwr (o /carga_entrenamiento) — Ratio agudo:crónico de carga (Tim Gabbett)\n` +
-        `• /actividad (o /entrenamiento) — Telemetría de tu última sesión de ejercicio\n` +
-        `• /recuperacion_entreno — Horas restantes para regeneración muscular total\n` +
-        `• /historial_actividades — Resumen de tus últimos 5 entrenamientos\n\n` +
+        `🏃 *2. Actividad Física, Movilidad & Prevención:*\n` +
+        `• /acwr (o /carga_entrenamiento) — Ratio de actividad y carga semanal acumulada\n` +
+        `• /actividad (o /entrenamiento) — Telemetría de tu última sesión de caminata/ejercicio\n` +
+        `• /recuperacion_entreno — Horas de descanso recomendadas para recuperar energía\n` +
+        `• /historial_actividades — Resumen de tus últimas actividades registradas\n\n` +
         `🧠 *3. Corazón, Sistema Autónomo & Longevidad:*\n` +
         `• /sistema_autonomo (o /estres_cardiaco) — Tono vagal, estrés y descenso nocturno (dip %)\n` +
         `• /edad_biologica (o /longevidad) — Edad biológica vs cronológica (referencia: 21 años)\n` +
@@ -674,9 +674,10 @@ class HealthTelegramBot {
         }
       }
 
-      const t = `👤 *PERFIL BIOMÉTRICO DEL ATLETA*\n\n` +
+      const t = `👤 *PERFIL DE SALUD & BIENESTAR*\n\n` +
         `• *Nombre:* *${config.USER_PROFILE.name}*\n` +
-        `• *Edad Cronológica Real:* *${config.USER_PROFILE.age} años* (Año: ${config.USER_PROFILE.birthYear})\n\n` +
+        `• *Edad Cronológica Real:* *${config.USER_PROFILE.age} años* (Año: ${config.USER_PROFILE.birthYear})\n` +
+        `• *Enfoque:* Persona normal con rutina sedentaria buscando salud preventiva, romper el sedentarismo y optimizar descanso.\n\n` +
         `💡 *Para ajustar tu edad:* escribe \`/edad [tus años]\` (ej: \`/edad 21\` o \`/edad 22\`).`;
       await sendSafeMessage(ctx, t);
     });

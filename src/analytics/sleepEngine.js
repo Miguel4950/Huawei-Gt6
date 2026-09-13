@@ -214,6 +214,7 @@ class SleepEngine {
       totalActualHours: parseFloat(totalActual.toFixed(2)),
       expectedHours: parseFloat(expected.toFixed(2)),
       totalDebtHours: parseFloat(debt.toFixed(2)),
+      debtStatus: debt > 1 ? 'Déficit' : debt < -1 ? 'Superávit' : 'En equilibrio',
       avgDailySleepHours: parseFloat((totalActual / recent.length).toFixed(2))
     };
   }

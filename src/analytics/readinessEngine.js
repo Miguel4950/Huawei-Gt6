@@ -82,16 +82,16 @@ class ReadinessEngine {
 
     let level = 'MODERADO';
     let color = '🟡';
-    let advice = 'Tu cuerpo tiene energía moderada. Apto para entrenamiento de base aeróbica en Zona 2 o fuerza estándar.';
+    let advice = 'Tu energía y tono autonómico están en nivel funcional. Apto para una caminata continua de 30-40 min, pausas activas y estiramientos.';
 
     if (score >= 85) {
       level = 'ÓPTIMO';
       color = '🟢';
-      advice = 'Recuperación neuromuscular y tono vagal sobresalientes. Ventana ideal para intensidades máximas, HIIT o levantamientos pesados.';
+      advice = 'Excelente nivel de energía y descanso. Momento perfecto para salir a caminar a paso ágil, subir escaleras, romper el sedentarismo y realizar ejercicios de fuerza con peso corporal.';
     } else if (score < 65) {
       level = 'BAJO (FATIGA)';
       color = '🔴';
-      advice = 'Fatiga acumulada o carga autonómica detectada. Prioriza recuperación activa, movilidad, hidratación y sueño temprano.';
+      advice = 'Fatiga acumulada o sueño insuficiente. Evita sobrecargas: prioriza descansos breves, paseos suaves de descarga, buena hidratación y acostarte más temprano hoy.';
     }
 
     return {
