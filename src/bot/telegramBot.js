@@ -533,14 +533,37 @@ class HealthTelegramBot {
     this.bot.launch().then(() => {
       this.isLaunched = true;
       console.log('🤖 [Bot] @AnalistaBotMiguelAcuBot está conectado a Telegram y escuchando mensajes!');
-      // Trigger background Drive sync (non-blocking)
-      driveSync.syncAll().then(r => console.log('[DriveSync Background]', r.message)).catch(() => {});
+
+      // Sincronización inicial inmediata
+      driveSync.syncAll().then(r => {
+        if (r.syncedCount > 0) {
+          console.log(`[AutoSync Inicial] ✅ ${r.syncedCount} archivos nuevos descargados de Drive.`);
+        }
+      }).catch(err => console.warn('[AutoSync Inicial]', err.message));
+
+      // Sincronización periódica automática cada 10 minutos (600.000 ms)
+      const TEN_MINUTES_MS = 10 * 60 * 1000;
+      this.syncInterval = setInterval(async () => {
+        try {
+          const res = await driveSync.syncAll();
+          if (res.syncedCount > 0) {
+            console.log(`[AutoSync 10m] 🔄 ${res.syncedCount} archivos nuevos descargados automáticamente.`);
+          }
+        } catch (err) {
+          console.warn('[AutoSync 10m] Error en sincronización periódica:', err.message);
+        }
+      }, TEN_MINUTES_MS);
+
     }).catch(err => {
       console.error('[Bot] Error en launch:', err.message);
     });
   }
 
   stop() {
+    if (this.syncInterval) {
+      clearInterval(this.syncInterval);
+      this.syncInterval = null;
+    }
     if (this.bot && this.isLaunched) {
       this.bot.stop('SIGINT');
       this.isLaunched = false;
