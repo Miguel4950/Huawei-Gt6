@@ -3,7 +3,7 @@ const dataLoader = require('../data/dataLoader');
 class SleepEngine {
   /**
    * Partitions continuous sleep stage rows into distinct nights/sessions
-   * based on a minimum gap of 4 hours (14400s) between events.
+   * based on a minimum gap of 4 hours between events.
    */
   getSleepSessions() {
     const records = dataLoader.loadSleepRecords();
@@ -44,11 +44,22 @@ class SleepEngine {
     let awakeCount = 0;
     let longestAwake = 0;
 
+    // Temporal tracking for Deep Sleep front-loading (first half vs second half)
+    const totalDurationSeconds = rows.reduce((acc, r) => acc + r.duration, 0);
+    const halfMark = totalDurationSeconds / 2;
+    let runningElapsed = 0;
+    let deepFirstHalf = 0;
+    let deepSecondHalf = 0;
+
     for (const r of rows) {
       const d = r.duration;
+      const isFirstHalf = runningElapsed < halfMark;
+
       switch (r.stage) {
         case 'deep':
           deep += d;
+          if (isFirstHalf) deepFirstHalf += d;
+          else deepSecondHalf += d;
           break;
         case 'rem':
           rem += d;
@@ -65,6 +76,7 @@ class SleepEngine {
           light += d;
           break;
       }
+      runningElapsed += d;
     }
 
     const totalSleep = deep + rem + light;
@@ -82,13 +94,40 @@ class SleepEngine {
     const lastStage = rows[rows.length - 1].stage;
     const wokenUpInDeep = lastStage === 'deep';
 
+    // Sleep Midpoint Calculation (Punto Medio del Sueño)
+    // Used by chronobiologists to measure social jetlag & circadian shift
+    let midpointTimeStr = '';
+    try {
+      const startDate = new Date(start.replace(/\./g, '-'));
+      const midDate = new Date(startDate.getTime() + (inBed * 1000) / 2);
+      midpointTimeStr = midDate.toTimeString().split(' ')[0].substring(0, 5); // HH:MM
+    } catch (e) {
+      midpointTimeStr = '06:00';
+    }
+
+    // Deep Sleep Front-Loading Ratio (Ideally > 65% in first half for cellular repair)
+    const deepFrontLoadingPct = deep > 0 ? Math.round((deepFirstHalf / deep) * 100) : 0;
+    const isDeepWellFrontLoaded = deepFrontLoadingPct >= 60;
+
+    // Sleep Recovery Ratio: (Deep + REM) / (Light + Awake)
+    // High-performance ratio: > 0.60 is optimal, < 0.40 indicates restless/shallow sleep
+    const restorativeSleep = deep + rem;
+    const nonRestorativeSleep = light + awake;
+    const recoveryRatio = nonRestorativeSleep > 0 
+      ? parseFloat((restorativeSleep / nonRestorativeSleep).toFixed(2)) 
+      : 0.5;
+
+    // Fragmentation Index: awakenings per hour of sleep
+    const hoursSleep = totalSleep / 3600;
+    const fragmentationIndex = hoursSleep > 0 
+      ? parseFloat((awakeCount / hoursSleep).toFixed(1)) 
+      : 0;
+
     // Clinical Sleep Score (0-100)
-    // Based on Duration (40%), Deep % (20%), REM % (20%), Efficiency (20%)
     let score = 0;
-    const hours = totalSleep / 3600;
-    if (hours >= 7 && hours <= 9) score += 40;
-    else if (hours >= 6 || hours > 9) score += 30;
-    else score += 15;
+    if (hoursSleep >= 7 && hoursSleep <= 9) score += 35;
+    else if (hoursSleep >= 6 || hoursSleep > 9) score += 25;
+    else score += 12;
 
     const deepPct = totalSleep > 0 ? (deep / totalSleep) * 100 : 0;
     const remPct = totalSleep > 0 ? (rem / totalSleep) * 100 : 0;
@@ -103,11 +142,16 @@ class SleepEngine {
     else if (remPct >= 15) score += 12;
     else score += 5;
 
-    if (efficiency >= 85) score += 20;
-    else if (efficiency >= 75) score += 12;
-    else score += 5;
+    if (efficiency >= 88) score += 15;
+    else if (efficiency >= 78) score += 10;
+    else score += 4;
 
-    // Date identifier (YYYY-MM-DD of the waking day)
+    // Bonus for good deep sleep front-loading and recovery ratio
+    if (isDeepWellFrontLoaded) score += 5;
+    if (recoveryRatio >= 0.6) score += 5;
+
+    score = Math.min(100, Math.max(0, score));
+
     const endDate = end.split(' ')[0].replace(/\./g, '-');
 
     return {
@@ -134,6 +178,12 @@ class SleepEngine {
       awakeCount,
       longestAwakeSeconds: longestAwake,
       sleepScore: score,
+      // Advanced physiological indices
+      sleepMidpoint: midpointTimeStr,
+      deepFrontLoadingPct,
+      isDeepWellFrontLoaded,
+      recoveryRatio,
+      fragmentationIndex,
       rawRowCount: rows.length
     };
   }
@@ -150,7 +200,6 @@ class SleepEngine {
 
   calculateSleepDebt(targetHoursPerDay = 8.0) {
     const sessions = this.getSleepSessions();
-    // Use last 7 sessions
     const recent = sessions.slice(-7);
     if (recent.length === 0) return { totalDebtHours: 0, avgSleepHours: 0, daysCount: 0 };
 
@@ -171,26 +220,30 @@ class SleepEngine {
 
   determineChronotype() {
     const sessions = this.getSleepSessions();
-    if (sessions.length === 0) return { chronotype: 'Desconocido', avgBedtimeHour: 0 };
+    if (sessions.length === 0) return { chronotype: 'Desconocido', avgBedtimeOffset: 0, midpoints: [] };
 
     let totalHour = 0;
+    const midpoints = [];
+
     sessions.forEach(s => {
       const timePart = s.startTime.split(' ')[1] || '00:00:00';
       let hour = parseInt(timePart.split(':')[0], 10);
       const min = parseInt(timePart.split(':')[1], 10);
-      if (hour >= 18) hour = hour - 24; // Convert 23:00 to -1 for circular average
+      if (hour >= 18) hour = hour - 24;
       totalHour += (hour + min / 60);
+      if (s.sleepMidpoint) midpoints.push(s.sleepMidpoint);
     });
 
     const avg = totalHour / sessions.length;
     let chronotype = 'Intermedio';
-    if (avg < -1.5) chronotype = 'Alondra (Madrugador)'; // Before 22:30
-    else if (avg > 1.0) chronotype = 'Búho (Noctámbulo)'; // After 01:00 AM
+    if (avg < -1.5) chronotype = 'Alondra (Madrugador)';
+    else if (avg > 1.0) chronotype = 'Búho (Noctámbulo)';
 
     return {
       chronotype,
       avgBedtimeOffset: parseFloat(avg.toFixed(2)),
-      sessionsSampled: sessions.length
+      sessionsSampled: sessions.length,
+      midpoints
     };
   }
 }

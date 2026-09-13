@@ -10,40 +10,53 @@ class ReadinessEngine {
     const rhrTrend = heartEngine.getRhrTrend();
     const oxygen = oxygenEngine.getLatestDayStats();
     const activity = activityEngine.getLatestDayStats();
+    const workout = require('./workoutEngine').getLatestWorkout();
 
     if (!sleep) {
       return {
         score: 75,
         level: 'MODERADO',
         color: '🟡',
-        verdict: 'Datos de sueño insuficientes para cálculo preciso.'
+        verdict: 'Datos de sueño insuficientes para cálculo preciso.',
+        components: {}
       };
     }
 
     let score = 0;
 
-    // 1. Duración y eficiencia de sueño (máx 35 pts)
+    // 1. Arquitectura y Regeneración del Sueño (Máx 35 pts)
     const hours = sleep.totalSleepHours;
-    if (hours >= 7.5 && hours <= 9) score += 35;
-    else if (hours >= 6.5) score += 28;
-    else if (hours >= 5.5) score += 20;
-    else score += 10;
+    if (hours >= 7.5 && hours <= 9) score += 20;
+    else if (hours >= 6.5) score += 16;
+    else if (hours >= 5.5) score += 10;
+    else score += 5;
 
-    // 2. Calidad de fases: Profundo y REM (máx 25 pts)
-    if (sleep.deepPct >= 15 && sleep.remPct >= 20) score += 25;
-    else if (sleep.deepPct >= 12 || sleep.remPct >= 18) score += 18;
-    else score += 10;
+    // Fases restaurativas (Deep & REM)
+    if (sleep.deepPct >= 15 && sleep.remPct >= 20) score += 10;
+    else if (sleep.deepPct >= 12 || sleep.remPct >= 18) score += 7;
+    else score += 4;
 
-    // 3. Frecuencia cardíaca en reposo vs promedio semanal (máx 20 pts)
+    // Bonus por front-loading de sueño profundo (reparación miofibrilar en 1ra mitad)
+    if (sleep.isDeepWellFrontLoaded) score += 3;
+    if (sleep.recoveryRatio >= 0.6) score += 2;
+
+    // 2. Estado Autonómico y Vagal (Máx 30 pts)
     const currentRhr = heart ? heart.restingHeartRate : 60;
     const avgRhr = rhrTrend.recent7DaysAvgRhr || currentRhr;
     const diff = currentRhr - avgRhr;
-    if (diff <= -2) score += 20; // RHR is lower than usual -> excellent recovery
-    else if (diff <= 2) score += 17; // RHR is normal
-    else if (diff <= 5) score += 10; // RHR slightly elevated -> mild fatigue
-    else score += 4; // RHR significantly elevated -> strong fatigue / stress
+    if (diff <= -2) score += 15; // RHR más bajo de lo habitual -> supercompensación
+    else if (diff <= 2) score += 12; // RHR en rango habitual
+    else if (diff <= 5) score += 7; // RHR ligeramente elevado -> estrés o fatiga
+    else score += 2; // RHR muy elevado -> sobrecarga simpática aguda
 
-    // 4. Estabilidad de Oxígeno (máx 10 pts)
+    // Nocturnal Heart Rate Dip % (Clínica cardiológica: 10-20% es normal)
+    const dip = heart ? heart.nocturnalDipPct : 12;
+    if (dip >= 10 && dip <= 20) score += 15; // Dipper fisiológico
+    else if (dip > 20) score += 12; // Extreme dipper
+    else if (dip >= 5) score += 7; // Non-dipper leve
+    else score += 3; // Non-dipper severo / carga simpática nocturna
+
+    // 3. Estabilidad de Oxígeno y Eficiencia (Máx 20 pts)
     if (oxygen) {
       if (oxygen.minSpo2 >= 95) score += 10;
       else if (oxygen.minSpo2 >= 92) score += 7;
@@ -52,25 +65,33 @@ class ReadinessEngine {
       score += 8;
     }
 
-    // 5. Eficiencia de sueño (máx 10 pts)
     if (sleep.efficiencyPct >= 90) score += 10;
     else if (sleep.efficiencyPct >= 80) score += 7;
     else score += 4;
+
+    // 4. Factor de Carga y Fatiga Residual de Entrenamiento (Máx 15 pts)
+    let workoutDeduction = 0;
+    if (workout && workout.hoursRemaining > 0) {
+      if (workout.hoursRemaining > 24) workoutDeduction = 6;
+      else if (workout.hoursRemaining > 12) workoutDeduction = 3;
+      else workoutDeduction = 1;
+    }
+    score += Math.max(0, 15 - workoutDeduction);
 
     score = Math.min(100, Math.max(0, score));
 
     let level = 'MODERADO';
     let color = '🟡';
-    let advice = 'Tu cuerpo tiene energía moderada. Apto para entrenamiento estándar o cardio de base.';
+    let advice = 'Tu cuerpo tiene energía moderada. Apto para entrenamiento de base aeróbica en Zona 2 o fuerza estándar.';
 
     if (score >= 85) {
       level = 'ÓPTIMO';
       color = '🟢';
-      advice = 'Recuperación muscular y del sistema nervioso sobresaliente. Día ideal para esfuerzos máximos, pesas o cardio intenso.';
+      advice = 'Recuperación neuromuscular y tono vagal sobresalientes. Ventana ideal para intensidades máximas, HIIT o levantamientos pesados.';
     } else if (score < 65) {
       level = 'BAJO (FATIGA)';
       color = '🔴';
-      advice = 'Fatiga acumulada detectada. Prioriza descanso activo, hidratación, estiramientos y acuéstate más temprano hoy.';
+      advice = 'Fatiga acumulada o carga autonómica detectada. Prioriza recuperación activa, movilidad, hidratación y sueño temprano.';
     }
 
     return {
@@ -83,11 +104,16 @@ class ReadinessEngine {
         sleepHours: sleep.totalSleepHours,
         deepPct: sleep.deepPct,
         remPct: sleep.remPct,
+        recoveryRatio: sleep.recoveryRatio,
+        isDeepWellFrontLoaded: sleep.isDeepWellFrontLoaded,
         efficiencyPct: sleep.efficiencyPct,
         currentRhr,
         baselineRhr: avgRhr,
         rhrDelta: diff,
-        minSpo2: oxygen ? oxygen.minSpo2 : 96
+        nocturnalDipPct: dip,
+        dippingStatus: heart ? heart.dippingStatus : 'Normal',
+        minSpo2: oxygen ? oxygen.minSpo2 : 96,
+        workoutHoursRemaining: workout ? workout.hoursRemaining : 0
       }
     };
   }

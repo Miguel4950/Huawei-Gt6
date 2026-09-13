@@ -10,6 +10,7 @@ const oxygenEngine = require('../analytics/oxygenEngine');
 const activityEngine = require('../analytics/activityEngine');
 const workoutEngine = require('../analytics/workoutEngine');
 const readinessEngine = require('../analytics/readinessEngine');
+const crossAnalytics = require('../analytics/crossAnalytics');
 const geminiCoach = require('../ai/geminiCoach');
 const prompts = require('../ai/prompts');
 const formatters = require('./formatters');
@@ -28,28 +29,32 @@ class HealthTelegramBot {
   getMenuKeyboard() {
     return Markup.inlineKeyboard([
       [
-        Markup.button.callback('🌙 ¿Cómo dormí?', 'btn_comodormi'),
+        Markup.button.callback('🏋️ Prescripción Hoy', 'btn_prescripcion'),
         Markup.button.callback('⚡ Batería / Readiness', 'btn_readiness')
       ],
       [
+        Markup.button.callback('🌙 ¿Cómo dormí?', 'btn_comodormi'),
+        Markup.button.callback('🧠 Tono Autónomo', 'btn_autonomo')
+      ],
+      [
         Markup.button.callback('🏃 Monitor Entreno', 'btn_actividad'),
-        Markup.button.callback('❤️ Corazón & RHR', 'btn_corazon')
+        Markup.button.callback('📈 Carga ACWR', 'btn_acwr')
+      ],
+      [
+        Markup.button.callback('❤️ Corazón & RHR', 'btn_corazon'),
+        Markup.button.callback('🧬 Edad Biológica', 'btn_edad_bio')
       ],
       [
         Markup.button.callback('🚶 Pasos y Actividad', 'btn_pasos'),
-        Markup.button.callback('📊 Fases de Sueño', 'btn_fases')
-      ],
-      [
-        Markup.button.callback('🎯 Zonas Cardíacas', 'btn_zonas'),
         Markup.button.callback('📅 Resumen Hoy', 'btn_hoy')
       ],
       [
-        Markup.button.callback('📈 Informe Semanal', 'btn_semanal'),
-        Markup.button.callback('🔄 Sincronizar Drive', 'btn_sync')
+        Markup.button.callback('📊 Fases de Sueño', 'btn_fases'),
+        Markup.button.callback('📈 Informe Semanal', 'btn_semanal')
       ],
       [
-        Markup.button.callback('💰 Presupuesto & Tokens', 'btn_presupuesto'),
-        Markup.button.callback('❓ Guía de Comandos', 'btn_ayuda')
+        Markup.button.callback('🔄 Sincronizar Drive', 'btn_sync'),
+        Markup.button.callback('💰 Tokens & Costo', 'btn_presupuesto')
       ]
     ]);
   }
@@ -83,33 +88,36 @@ class HealthTelegramBot {
 
     // AYUDA
     const handleHelp = async (ctx) => {
-      let text = `📖 *GUÍA COMPLETA DE COMANDOS DEL BOT*\n\n` +
+      let text = `📖 *GUÍA COMPLETA DE COMANDOS DEL COACH BIOMÉTRICO*\n\n` +
+        `🏋️ *Entrenamiento de Alto Rendimiento:*\n` +
+        `• /prescripcion o /plan_hoy - Sesión del día calculada según tu recuperación, pulso y carga\n` +
+        `• /acwr o /carga_entrenamiento - Ratio Agudo:Crónico de carga y prevención de lesiones\n` +
+        `• /actividad o /entrenamiento - Análisis del último ejercicio registrado\n` +
+        `• /recuperacion_entreno - Horas restantes de supercompensación muscular\n` +
+        `• /historial_actividades - Historial de los últimos entrenamientos\n\n` +
         `🌙 *Sueño y Descanso:*\n` +
         `• /comodormi - Diagnóstico completo de anoche con IA\n` +
         `• /fases - Gráfico de barras de fases (REM, Profundo, Ligero)\n` +
         `• /ciclos - Conteo de ciclos ultradianos (~90 min)\n` +
         `• /eficiencia - Porcentaje real dormido vs tiempo en cama\n` +
         `• /deuda_sueno - Déficit acumulado en 7 días\n` +
-        `• /cronotipo - Evaluación de regularidad circadiana\n` +
+        `• /cronotipo - Regularidad circadiana y tipo de reloj biológico\n` +
         `• /apnea_oxigeno - Cruce de despertares con caídas de SpO2\n\n` +
-        `🏃 *Entrenamientos y Deporte:*\n` +
-        `• /actividad o /entrenamiento - Análisis profundo del último entrenamiento con tiempo de recuperación\n` +
-        `• /historial_actividades - Resumen de los últimos entrenamientos\n` +
-        `• /recuperacion_entreno - Cronómetro y estado biológico de recuperación muscular\n\n` +
-        `❤️ *Corazón & Estrés:*\n` +
+        `🧠 *Corazón, Autónomo & Longevidad:*\n` +
+        `• /sistema_autonomo o /estres_cardiaco - Tono vagal, descanso nocturno (dip) y balance simpático\n` +
+        `• /edad_biologica o /longevidad - Edad biológica vs cronológica basada en tus biomarcadores\n` +
         `• /corazon - Estadísticas y pulso de hoy\n` +
         `• /frecuencia_reposo - Pulso en reposo (RHR) y tendencia 7d\n` +
-        `• /zonas - Minutos en Zonas Cardíacas Z1 a Z5\n` +
-        `• /picos_estres - Taquicardia o estrés detectado en reposo\n\n` +
-        `⚡ *Recuperación & Rendimiento:*\n` +
-        `• /readiness o /bateria - Semáforo de energía matutino (0-100)\n` +
+        `• /zonas - Minutos en Zonas Cardíacas Z1 a Z5 (Karvonen)\n` +
+        `• /picos_estres - Taquicardias en reposo detectadas\n\n` +
+        `⚡ *Batería Corporal & Día a Día:*\n` +
+        `• /readiness o /bateria - Semáforo de energía y preparación física (0-100)\n` +
         `• /pasos - Pasos, distancia, calorías y hora pico\n` +
-        `• /sedentarismo - Horas continuas de inactividad diurna\n\n` +
-        `📊 *Informes Temporales & Utilidades:*\n` +
-        `• /hoy - Tablero de mando integral del día\n` +
+        `• /sedentarismo - Horas continuas de inactividad diurna\n` +
+        `• /hoy - Tablero de mando integral 360° del día\n` +
         `• /semanal - Informe ejecutivo semanal con metas\n` +
         `• /sync - Sincronizar carpetas de Google Drive\n` +
-        `• /presupuesto - Estado de tokens y saldo restante ($5/mes)\n\n` +
+        `• /presupuesto - Control de tokens y saldo restante ($5/mes)\n\n` +
         `📎 *Subida Directa:* ¡También puedes enviarme cualquier archivo CSV por este chat y lo analizaré de inmediato!`;
       await sendSafeMessage(ctx, text);
     };
@@ -148,6 +156,68 @@ class HealthTelegramBot {
       }
     };
     bot.command('comodormi', handleSleep);
+
+    // PRESCRIPCION DIARIA DE ENTRENAMIENTO
+    const handlePrescription = async (ctx) => {
+      sendTyping(ctx);
+      const prescription = crossAnalytics.getDailyPrescription();
+      try {
+        const prompt = prompts.buildPrescriptionPrompt(prescription);
+        const aiRes = await geminiCoach.generateAnalysis(prompt);
+        const msg = formatters.formatPrescriptionReport(prescription, aiRes.text);
+        await sendSafeMessage(ctx, msg);
+      } catch (err) {
+        const msg = formatters.formatPrescriptionReport(prescription, `(Plan base algorítmico: ${err.message})`);
+        await sendSafeMessage(ctx, msg);
+      }
+    };
+    bot.command('prescripcion', handlePrescription);
+    bot.command('plan_hoy', handlePrescription);
+
+    // SISTEMA AUTONOMO & TONO VAGAL
+    const handleAutonomic = async (ctx) => {
+      sendTyping(ctx);
+      const ans = crossAnalytics.getAutonomicBalance();
+      try {
+        const prompt = prompts.buildAutonomicPrompt(ans);
+        const aiRes = await geminiCoach.generateAnalysis(prompt);
+        const msg = formatters.formatAutonomicReport(ans, aiRes.text);
+        await sendSafeMessage(ctx, msg);
+      } catch (err) {
+        const msg = formatters.formatAutonomicReport(ans, `(Diagnóstico base: ${err.message})`);
+        await sendSafeMessage(ctx, msg);
+      }
+    };
+    bot.command('sistema_autonomo', handleAutonomic);
+    bot.command('tono_vagal', handleAutonomic);
+    bot.command('estres_cardiaco', handleAutonomic);
+
+    // EDAD BIOLOGICA & LONGEVIDAD
+    const handleBiologicalAge = async (ctx) => {
+      sendTyping(ctx);
+      const bio = crossAnalytics.getBiologicalFitnessAge();
+      try {
+        const prompt = prompts.buildBiologicalAgePrompt(bio);
+        const aiRes = await geminiCoach.generateAnalysis(prompt);
+        const msg = formatters.formatBiologicalAgeReport(bio, aiRes.text);
+        await sendSafeMessage(ctx, msg);
+      } catch (err) {
+        const msg = formatters.formatBiologicalAgeReport(bio, `(Diagnóstico base: ${err.message})`);
+        await sendSafeMessage(ctx, msg);
+      }
+    };
+    bot.command('edad_biologica', handleBiologicalAge);
+    bot.command('longevidad', handleBiologicalAge);
+
+    // CARGA DE ENTRENAMIENTO ACWR
+    const handleAcwr = async (ctx) => {
+      sendTyping(ctx);
+      const acwr = crossAnalytics.calculateACWR();
+      const msg = formatters.formatAcwrReport(acwr);
+      await sendSafeMessage(ctx, msg);
+    };
+    bot.command('acwr', handleAcwr);
+    bot.command('carga_entrenamiento', handleAcwr);
 
     // ACTIVIDAD / ENTRENAMIENTO
     const handleWorkout = async (ctx) => {
@@ -483,6 +553,22 @@ class HealthTelegramBot {
     });
 
     // Inline Button Handlers
+    bot.action('btn_prescripcion', async (ctx) => {
+      await ctx.answerCbQuery().catch(() => {});
+      await handlePrescription(ctx);
+    });
+    bot.action('btn_autonomo', async (ctx) => {
+      await ctx.answerCbQuery().catch(() => {});
+      await handleAutonomic(ctx);
+    });
+    bot.action('btn_edad_bio', async (ctx) => {
+      await ctx.answerCbQuery().catch(() => {});
+      await handleBiologicalAge(ctx);
+    });
+    bot.action('btn_acwr', async (ctx) => {
+      await ctx.answerCbQuery().catch(() => {});
+      await handleAcwr(ctx);
+    });
     bot.action('btn_comodormi', async (ctx) => {
       await ctx.answerCbQuery().catch(() => {});
       await handleSleep(ctx);
@@ -548,7 +634,11 @@ class HealthTelegramBot {
         ultimoPulso: heartEngine.getLatestDayStats(),
         ultimosPasos: activityEngine.getLatestDayStats(),
         ultimoEntrenamiento: workoutEngine.getLatestWorkout(),
-        readiness: readinessEngine.calculateReadiness()
+        readiness: readinessEngine.calculateReadiness(),
+        prescripcion: crossAnalytics.getDailyPrescription(),
+        balanceAutonomo: crossAnalytics.getAutonomicBalance(),
+        edadBiologica: crossAnalytics.getBiologicalFitnessAge(),
+        cargaAcwr: crossAnalytics.calculateACWR()
       };
 
       try {

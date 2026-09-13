@@ -1,9 +1,6 @@
 const dataLoader = require('../data/dataLoader');
 
 class HeartEngine {
-  /**
-   * Groups heart rate records by day (YYYY.MM.DD)
-   */
   getDailyRecords() {
     const records = dataLoader.loadHeartRateRecords();
     const byDay = {};
@@ -28,6 +25,7 @@ class HeartEngine {
     let min = 999;
     let max = 0;
     const nocturnal = [];
+    const daytime = [];
     const values = [];
 
     // Zones tracking in counts
@@ -49,6 +47,8 @@ class HeartEngine {
       // Nocturnal window: 00:00 to 07:00
       if (hour >= 0 && hour <= 6) {
         nocturnal.push(bpm);
+      } else {
+        daytime.push(bpm);
       }
 
       if (bpm < 100) z1++;
@@ -59,8 +59,10 @@ class HeartEngine {
     }
 
     const avg = sum / records.length;
+    const daytimeAvg = daytime.length > 0 ? daytime.reduce((a, b) => a + b, 0) / daytime.length : avg;
+    const nocturnalAvg = nocturnal.length > 0 ? nocturnal.reduce((a, b) => a + b, 0) / nocturnal.length : avg;
 
-    // Resting Heart Rate (RHR): average of lowest 15% of nocturnal readings (or min of nocturnal)
+    // Resting Heart Rate (RHR): lowest 15% nocturnal readings
     let rhr = min;
     if (nocturnal.length > 0) {
       nocturnal.sort((a, b) => a - b);
@@ -68,6 +70,40 @@ class HeartEngine {
       const lowestSlice = nocturnal.slice(0, sliceCount);
       rhr = Math.round(lowestSlice.reduce((a, b) => a + b, 0) / lowestSlice.length);
     }
+
+    // Nocturnal Heart Rate Dip %: (Daytime Avg - Nocturnal Avg) / Daytime Avg * 100
+    // Clinical Gold Standard: 10% - 20% is normal "dipper" (cardiovascular health)
+    let dipPct = 0;
+    let dippingStatus = 'Normal (Dipper)';
+    if (daytimeAvg > 0) {
+      dipPct = parseFloat((((daytimeAvg - nocturnalAvg) / daytimeAvg) * 100).toFixed(1));
+      if (dipPct < 10) {
+        dippingStatus = 'Reducido (Non-Dipper) — Carga simpática o digestión tardía';
+      } else if (dipPct > 20) {
+        dippingStatus = 'Pronunciado (Extreme Dipper) — Alta relajación vagal';
+      }
+    }
+
+    // Cardiovascular Strain Index (CSI): measures cumulative cardiac workload above baseline
+    let cardiacLoadScore = 0;
+    records.forEach(r => {
+      if (r.bpm > rhr) {
+        cardiacLoadScore += (r.bpm - rhr);
+      }
+    });
+    // Normalize to a 0-100 strain index
+    const csi = Math.min(100, Math.round(cardiacLoadScore / (records.length * 0.8)));
+
+    // Individualized Karvonen Heart Rate Reserve (HRR) thresholds
+    const estimatedMaxHr = 195;
+    const hrr = estimatedMaxHr - rhr;
+    const karvonenZones = {
+      z1Recovery: `${Math.round(rhr + hrr * 0.50)} - ${Math.round(rhr + hrr * 0.60)} bpm`,
+      z2AerobicBase: `${Math.round(rhr + hrr * 0.60)} - ${Math.round(rhr + hrr * 0.70)} bpm`,
+      z3TempoCardio: `${Math.round(rhr + hrr * 0.70)} - ${Math.round(rhr + hrr * 0.80)} bpm`,
+      z4Threshold: `${Math.round(rhr + hrr * 0.80)} - ${Math.round(rhr + hrr * 0.90)} bpm`,
+      z5MaxEffort: `> ${Math.round(rhr + hrr * 0.90)} bpm`
+    };
 
     const total = records.length;
 
@@ -77,7 +113,14 @@ class HeartEngine {
       minBpm: min,
       maxBpm: max,
       avgBpm: Math.round(avg),
+      daytimeAvgBpm: Math.round(daytimeAvg),
+      nocturnalAvgBpm: Math.round(nocturnalAvg),
       restingHeartRate: rhr,
+      // Advanced physiological markers
+      nocturnalDipPct: dipPct,
+      dippingStatus,
+      cardiovascularStrainIndex: csi,
+      karvonenZones,
       zones: {
         z1Count: z1,
         z2Count: z2,
@@ -111,7 +154,12 @@ class HeartEngine {
     for (const d of days) {
       const stats = this.analyzeDay(d);
       if (stats) {
-        trend.push({ date: d, rhr: stats.restingHeartRate, avg: stats.avgBpm });
+        trend.push({ 
+          date: d, 
+          rhr: stats.restingHeartRate, 
+          avg: stats.avgBpm,
+          dip: stats.nocturnalDipPct
+        });
       }
     }
     const recent = trend.slice(-7);
@@ -131,10 +179,9 @@ class HeartEngine {
     const heartRows = byDay[dayStr] || [];
     const stepsRows = dataLoader.loadStepsRecords().filter(r => r.datetime.startsWith(dayStr));
 
-    // Map steps by hour-minute (or 10-min block)
     const stepMap = {};
     for (const s of stepsRows) {
-      const timeKey = s.datetime.substring(0, 15); // YYYY.MM.DD HH:m
+      const timeKey = s.datetime.substring(0, 15);
       stepMap[timeKey] = (stepMap[timeKey] || 0) + s.steps;
     }
 
@@ -148,7 +195,7 @@ class HeartEngine {
             datetime: h.datetime,
             bpm: h.bpm,
             steps: stepsAround,
-            note: 'Pico elevado en reposo (posible estrés o estimulante)'
+            note: 'Pico elevado en reposo (posible estrés, cafeína o digestión)'
           });
         }
       }

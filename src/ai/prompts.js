@@ -102,6 +102,52 @@ Pregunta del usuario: "${userQuestion}"
 Responde a su duda de forma precisa, basándote en sus números reales.`;
 }
 
+function buildPrescriptionPrompt(p) {
+  return `Diseña la sesión de entrenamiento personalizada para hoy basada en este diagnóstico multivariable:
+- Estado del Atleta: Batería Corporal ${p.readinessScore}/100 (${p.readinessLevel}) | Tono Vagal: ${p.ansScore}/100
+- Carga ACWR (Ratio Agudo:Crónico): ${p.acwr} (${p.acwrZone})
+- Sesión Prescrita: ${p.sessionType} [Nivel: ${p.intensityLevel} ${p.icon}]
+- Rango Cardíaco Objetivo (Fórmula Karvonen): ${p.targetHeartZone}
+- Duración Sugerida: ${p.targetDurationMin} minutos
+- Actividades Permitidas: ${p.allowedActivities.join(', ')}
+- Enfoque Fisiológico: ${p.primaryFocus}
+- Fatiga Residual Previa: ${p.residualWorkoutFatigue}
+
+Estructura el entrenamiento de forma profesional y completa:
+1. ⏱️ **Protocolo de la Sesión:** Calentamiento neuromuscular (8-10 min), Bloque Central (manteniendo el rango de FC objetivo), y Vuelta a la Calma.
+2. 🧬 **Explicación Fisiológica:** Por qué esta intensidad exacta favorece su recuperación o adaptación biológica sin sobreentrenar.
+3. 💧 **Estrategia Nutricional e Hidratación:** Qué comer antes y después para máxima absorción y rendimiento.`;
+}
+
+function buildAutonomicPrompt(ans) {
+  return `Diagnóstico del Sistema Nervioso Autónomo y Tono Vagal:
+- Score Autonómico: ${ans.ansScore}/100 [${ans.state}]
+- Dip Cardíaco Nocturno: ${ans.nocturnalDipPct}% (${ans.dippingStatus}) [Normal: 10-20%]
+- Frecuencia Cardíaca en Reposo: ${ans.currentRhr} bpm (Base 7d: ${ans.baselineRhr} bpm, Delta: ${ans.rhrDelta > 0 ? '+' : ''}${ans.rhrDelta} bpm)
+- Ratio de Recuperación de Sueño: ${ans.sleepRecoveryRatio} (Ideal > 0.60)
+- Índice de Tensión Cardiovascular (CSI): ${ans.cardiovascularStrainIndex}/100
+- Predominio Simpático / Estrés: ${ans.sympatheticOverdrive ? 'SÍ (Alerta de sobrecarga)' : 'NO (Equilibrio adecuado)'}
+
+Entrega un informe clínico:
+1. 🧠 **Balance Simpático vs Parasimpático:** Qué nos dice el descenso nocturno de pulso y la variabilidad sobre la fatiga acumulada.
+2. ❤️ **Salud Endotelial y Barorreceptores:** Evaluación del fenómeno dipper nocturno.
+3. 🧘 **2 Técnicas de Regulación Vagal:** Prácticas para inducir relajación profunda hoy.`;
+}
+
+function buildBiologicalAgePrompt(bio) {
+  return `Evaluación de Edad Biológica y Salud Celular:
+- Edad Cronológica de Referencia: ${bio.chronologicalReferenceAge} años
+- Edad Biológica Calculada: ${bio.biologicalFitnessAge} años (${bio.rejuvenationYears > 0 ? `${bio.rejuvenationYears} años más joven` : `${Math.abs(bio.rejuvenationYears)} años de sobrecarga`})
+- Score de Longevidad Celular: ${bio.longevityScore}/100
+- Factores Determinantes:
+${bio.contributors.map(c => `  • ${c.factor}: ${c.impactYears > 0 ? '+' : ''}${c.impactYears} años`).join('\n')}
+
+Entrega:
+1. 🧬 **Veredicto de Edad Biológica:** Por qué sus biomarcadores reflejan este estado metabólico y cardiovascular.
+2. 🛡️ **Puntos Fuertes y Puntos de Vulnerabilidad.**
+3. 🚀 **Plan de Longevidad:** 2 intervenciones de estilo de vida para seguir rejuveneciendo sus arterias y mitocondrias.`;
+}
+
 module.exports = {
   SYSTEM_INSTRUCTION,
   buildSleepPrompt,
@@ -109,5 +155,9 @@ module.exports = {
   buildReadinessPrompt,
   buildHeartPrompt,
   buildWeeklyPrompt,
-  buildConversationPrompt
+  buildConversationPrompt,
+  buildPrescriptionPrompt,
+  buildAutonomicPrompt,
+  buildBiologicalAgePrompt
 };
+

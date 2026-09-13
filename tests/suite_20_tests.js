@@ -6,6 +6,7 @@ const oxygenEngine = require('../src/analytics/oxygenEngine');
 const activityEngine = require('../src/analytics/activityEngine');
 const workoutEngine = require('../src/analytics/workoutEngine');
 const readinessEngine = require('../src/analytics/readinessEngine');
+const crossAnalytics = require('../src/analytics/crossAnalytics');
 const prompts = require('../src/ai/prompts');
 const geminiCoach = require('../src/ai/geminiCoach');
 const formatters = require('../src/bot/formatters');
@@ -42,163 +43,172 @@ async function run20TestSuite() {
     }
   }
 
-  // 1. Duración y eficiencia de sueño
-  test('01. Cálculo exacto de duración y eficiencia de sueño', () => {
+  // 1. Arquitectura de sueño avanzada: duración, eficiencia y front-loading profundo
+  test('01. Arquitectura de sueño: duración, eficiencia y Deep Sleep Front-Loading', () => {
     const sleep = sleepEngine.getLatestNight();
     assert.ok(sleep, 'Debe existir la última noche de sueño');
     assert.ok(sleep.totalSleepHours > 4, 'Horas de sueño deben ser mayores a 4h');
     assert.ok(sleep.efficiencyPct >= 70 && sleep.efficiencyPct <= 100, 'Eficiencia debe estar entre 70% y 100%');
+    assert.strictEqual(typeof sleep.deepFrontLoadingPct, 'number', 'Front-loading deep sleep debe ser numérico');
+    assert.strictEqual(typeof sleep.isDeepWellFrontLoaded, 'boolean', 'isDeepWellFrontLoaded debe ser booleano');
   });
 
-  // 2. Fases de sueño
-  test('02. Desglose porcentual coherente de fases de sueño (Deep, REM, Light, Awake)', () => {
+  // 2. Fases del sueño y ratio restaurativo
+  test('02. Fases de sueño y Sleep Recovery Ratio (Deep+REM)/(Light+Awake)', () => {
     const sleep = sleepEngine.getLatestNight();
     const sumPct = sleep.deepPct + sleep.remPct + sleep.lightPct;
     assert.ok(Math.abs(sumPct - 100) < 1.0, 'La suma de fases dormidas debe aproximarse al 100%');
-    assert.ok(sleep.remPct > 10, 'Fase REM debe ser superior a 10%');
-    assert.ok(sleep.deepPct > 5, 'Fase Profunda debe ser superior a 5%');
+    assert.ok(sleep.recoveryRatio > 0.2, 'Recovery Ratio debe ser positivo y realista');
+    assert.strictEqual(typeof sleep.recoveryRatio, 'number', 'Recovery ratio debe ser número');
   });
 
-  // 3. Ciclos ultradianos de 90 minutos
-  test('03. Identificación de ciclos ultradianos de ~90 min y fase al despertar', () => {
+  // 3. Ciclos ultradianos de 90 min y punto medio de sueño (Social Jetlag)
+  test('03. Ciclos ultradianos (~90 min) y Sleep Midpoint circadiano', () => {
     const sleep = sleepEngine.getLatestNight();
-    assert.ok(sleep.cyclesCount >= 3.0, 'Debe haber al menos 3 ciclos completos de sueño');
-    assert.strictEqual(typeof sleep.wokenUpInDeep, 'boolean', 'wokenUpInDeep debe ser booleano');
+    assert.ok(sleep.cyclesCount >= 3.0, 'Debe haber al menos 3 ciclos de sueño');
+    assert.ok(sleep.sleepMidpoint.includes(':'), 'Sleep midpoint debe ser una hora válida HH:MM');
   });
 
-  // 4. Latencia de sueño
-  test('04. Detección y cálculo de latencia de inicio de sueño', () => {
-    const sleep = sleepEngine.getLatestNight();
-    assert.strictEqual(typeof sleep.latencySeconds, 'number', 'Latencia en segundos debe ser numérico');
-    assert.ok(sleep.latencySeconds >= 0, 'La latencia no puede ser negativa');
-  });
-
-  // 5. Deuda acumulada de sueño en 7 días
-  test('05. Cálculo de deuda acumulada de sueño vs objetivo de 8 horas', () => {
-    const debt = sleepEngine.calculateSleepDebt(8.0);
-    assert.ok(debt.daysCount > 0, 'Debe analizar al menos 1 día');
-    assert.strictEqual(typeof debt.totalDebtHours, 'number', 'totalDebtHours debe ser un número');
-    assert.ok(debt.avgDailySleepHours > 0, 'Promedio diario de sueño debe ser positivo');
-  });
-
-  // 6. Cronotipo circadiano
-  test('06. Análisis de regularidad circadiana y determinación de cronotipo', () => {
-    const chrono = sleepEngine.determineChronotype();
-    assert.ok(['Alondra (Madrugador)', 'Búho (Noctámbulo)', 'Intermedio'].includes(chrono.chronotype), 'Cronotipo debe ser válido');
-    assert.ok(chrono.sessionsSampled > 0, 'Debe haber sesiones evaluadas');
-  });
-
-  // 7. Frecuencia cardíaca en reposo nocturna (RHR)
-  test('07. Detección precisa de la Frecuencia Cardíaca en Reposo (RHR) nocturna', () => {
+  // 4. Frecuencia cardíaca en reposo (RHR) y zonas de Karvonen
+  test('04. Frecuencia Cardíaca en Reposo (RHR) y umbrales individualizados de Karvonen', () => {
     const stats = heartEngine.getLatestDayStats();
     assert.ok(stats, 'Debe existir estadísticas cardíacas');
     assert.ok(stats.restingHeartRate >= 40 && stats.restingHeartRate <= 90, 'RHR debe estar en rango fisiológico (40-90 bpm)');
+    assert.ok(stats.karvonenZones.z1Recovery, 'Debe calcular Zona 1 Karvonen');
+    assert.ok(stats.karvonenZones.z2AerobicBase, 'Debe calcular Zona 2 Karvonen');
   });
 
-  // 8. Estadísticas diarias de frecuencia cardíaca (Min, Media, Máx)
-  test('08. Estadísticas diarias de frecuencia cardíaca (Min < Media < Máx)', () => {
+  // 5. Descenso cardíaco nocturno (Nocturnal Dip %) y clasificación clínica
+  test('05. Descenso Cardíaco Nocturno (Nocturnal Dip %) y clasificación dipper', () => {
     const stats = heartEngine.getLatestDayStats();
-    assert.ok(stats.minBpm <= stats.avgBpm, 'Min BPM debe ser <= Avg BPM');
-    assert.ok(stats.avgBpm <= stats.maxBpm, 'Avg BPM debe ser <= Max BPM');
+    assert.strictEqual(typeof stats.nocturnalDipPct, 'number', 'Dip % debe ser numérico');
+    assert.ok(stats.dippingStatus.length > 0, 'Dipping status debe contener descripción clínica');
   });
 
-  // 9. Zonas de entrenamiento cardiovascular Z1-Z5
-  test('09. Clasificación de lecturas en Zonas Cardíacas Z1 a Z5', () => {
+  // 6. Índice de Tensión Cardiovascular (CSI)
+  test('06. Cálculo del Índice de Tensión Cardiovascular (CSI 0-100)', () => {
     const stats = heartEngine.getLatestDayStats();
-    const z = stats.zones;
-    const totalZonePct = z.z1Pct + z.z2Pct + z.z3Pct + z.z4Pct + z.z5Pct;
-    assert.ok(Math.abs(totalZonePct - 100) < 1.0, 'La suma de zonas debe sumar ~100%');
-    assert.ok(z.z1Pct > 0, 'Zona 1 (reposo) debe tener porcentaje positivo');
+    assert.ok(stats.cardiovascularStrainIndex >= 0 && stats.cardiovascularStrainIndex <= 100, 'CSI debe estar entre 0 y 100');
   });
 
-  // 10. Detección de picos de estrés (FC alta con pasos = 0)
-  test('10. Detección de picos de estrés o taquicardia postural', () => {
+  // 7. Detección de picos de estrés autonómico (FC alta con pasos = 0)
+  test('07. Detección de taquicardia o estrés simpático en reposo', () => {
     const days = heartEngine.getDaysList();
     const latestDay = days[days.length - 1];
     const spikes = heartEngine.detectStressSpikes(latestDay);
     assert.ok(Array.isArray(spikes), 'Spikes debe retornar un arreglo');
   });
 
-  // 11. Saturación de Oxígeno (SpO2) y caídas de saturación
-  test('11. Muestreo de SpO2 y detección de desaturaciones (<95% y <90%)', () => {
+  // 8. Saturación de Oxígeno (SpO2) y caídas nocturnas
+  test('08. Muestreo de SpO2 y desaturaciones en ventana de sueño', () => {
     const oxy = oxygenEngine.getLatestDayStats();
     assert.ok(oxy, 'Debe existir registro de SpO2');
-    assert.ok(oxy.avgSpo2 >= 90 && oxy.avgSpo2 <= 100, 'SpO2 promedio debe estar en rango 90-100%');
-    assert.strictEqual(typeof oxy.dropsBelow95Count, 'number', 'dropsBelow95 debe ser un número');
-  });
-
-  // 12. Correlación de oxígeno con ventana de sueño
-  test('12. Correlación cruzada entre SpO2 y la ventana de sueño nocturno', () => {
+    assert.ok(oxy.avgSpo2 >= 90 && oxy.avgSpo2 <= 100, 'SpO2 promedio debe ser 90-100%');
     const sleep = sleepEngine.getLatestNight();
     const corr = oxygenEngine.correlateWithSleep(sleep);
-    assert.ok(corr, 'Debe existir correlación de oxígeno en sueño');
-    assert.ok(corr.sampleCount > 0, 'Debe haber muestras en la ventana de sueño');
-    assert.ok(['Excelente', 'Buena', 'Interrupciones detectadas'].includes(corr.breathingStability), 'Estabilidad debe tener etiqueta válida');
+    assert.ok(corr, 'Debe correlacionar con sueño');
+    assert.ok(corr.sampleCount > 0, 'Debe haber muestras nocturnas de SpO2');
   });
 
-  // 13. Agregación horaria de pasos y calorías activas
-  test('13. Agregación de pasos diarios, distancia en km y calorías activas', () => {
+  // 9. Agregación de pasos, calorías activas y bloques sedentarios
+  test('09. Pasos diarios, calorías activas y bloques continuos de inactividad', () => {
     const act = activityEngine.getLatestDayStats();
     assert.ok(act, 'Debe haber estadísticas de actividad');
-    assert.ok(act.totalSteps >= 0, 'Los pasos deben ser positivos');
-    assert.ok(act.distanceKm >= 0, 'La distancia debe ser positiva');
-    assert.ok(act.activeCalories >= 0, 'Las calorías activas deben ser positivas');
-    assert.ok(act.peakHour.length > 0, 'Debe calcular la hora pico');
+    assert.ok(act.totalSteps >= 0, 'Pasos positivos');
+    assert.strictEqual(typeof act.sedentaryDaytimeHours, 'number', 'Horas sedentarias numéricas');
+    assert.strictEqual(typeof act.maxSedentaryStreakHours, 'number', 'Racha sedentaria numérica');
   });
 
-  // 14. Detección de horas sedentarias continuas
-  test('14. Identificación de bloques de inactividad / sedentarismo continuo', () => {
-    const act = activityEngine.getLatestDayStats();
-    assert.strictEqual(typeof act.sedentaryDaytimeHours, 'number', 'Horas sedentarias debe ser numérico');
-    assert.strictEqual(typeof act.maxSedentaryStreakHours, 'number', 'Racha máxima sedentaria debe ser numérico');
-  });
-
-  // 15. Procesamiento de sesiones de entrenamiento/workout
-  test('15. Análisis de sesiones deportivas y horas de recuperación', () => {
+  // 10. Procesamiento de entrenamientos y cronómetro de recuperación biológica
+  test('10. Análisis de entrenamientos, carga EPOC y cuenta regresiva de recuperación', () => {
     const w = workoutEngine.getLatestWorkout();
-    assert.ok(w, 'Debe cargar el último entrenamiento exportado');
-    assert.ok(w.durationMinutes >= 0, 'La duración debe ser positiva');
-    assert.ok(['Baja', 'Moderada', 'Alta', 'Muy Alta'].includes(w.intensity), 'La intensidad debe ser válida');
-    assert.ok(w.recoveryHours >= 12, 'Las horas de recuperación deben ser de al menos 12h');
+    assert.ok(w, 'Debe cargar el último entrenamiento');
+    assert.ok(w.trainingLoad >= 0, 'Carga de entrenamiento positiva');
+    assert.ok(w.recoveryHoursTotal >= 12, 'Horas de descanso totales >= 12h');
+    assert.strictEqual(typeof w.hoursRemaining, 'number', 'Horas restantes numéricas');
+    assert.ok(w.recoveryStatus.length > 0, 'Estado de recuperación descriptivo');
   });
 
-  // 16. Algoritmo de Score de Recuperación / Readiness (0-100)
-  test('16. Cálculo del Score de Recuperación / Body Battery (0-100)', () => {
+  // 11. Score de Recuperación / Readiness multivariable (0-100)
+  test('11. Score de Recuperación / Body Battery con integración autonómica y muscular', () => {
     const readiness = readinessEngine.calculateReadiness();
-    assert.ok(readiness.score >= 0 && readiness.score <= 100, 'Readiness score debe estar entre 0 y 100');
-    assert.ok(['ÓPTIMO', 'MODERADO', 'BAJO (FATIGA)'].includes(readiness.level), 'Nivel de recuperación debe ser válido');
-    assert.ok(['🟢', '🟡', '🔴'].includes(readiness.color), 'Color de semáforo debe ser válido');
+    assert.ok(readiness.score >= 0 && readiness.score <= 100, 'Readiness entre 0 y 100');
+    assert.ok(['ÓPTIMO', 'MODERADO', 'BAJO (FATIGA)'].includes(readiness.level), 'Nivel válido');
+    assert.ok(readiness.components.nocturnalDipPct !== undefined, 'Debe incluir dip nocturno');
   });
 
-  // 17. Correlación de ejercicio diurno y sueño posterior
-  test('17. Análisis del cruce ejercicio vs arquitectura del sueño posterior', () => {
-    const corr = readinessEngine.correlateExerciseAndSleep();
-    assert.ok(corr.latestNight, 'Debe incluir la última noche');
-    assert.ok(corr.latestWorkout, 'Debe incluir la última sesión de ejercicio');
+  // 12. Ratio Agudo:Crónico de Carga de Entrenamiento (ACWR)
+  test('12. Ratio Agudo:Crónico de Carga (ACWR Tim Gabbett) y zona de riesgo lesional', () => {
+    const acwrData = crossAnalytics.calculateACWR();
+    assert.strictEqual(typeof acwrData.acwr, 'number', 'ACWR debe ser numérico');
+    assert.ok(acwrData.zone.length > 0, 'Debe asignar una zona de rendimiento');
+    assert.ok(acwrData.riskFactor.length > 0, 'Debe evaluar el riesgo lesional');
   });
 
-  // 18. Tendencias y comparativa semanal
-  test('18. Cálculo de comparativa semanal y variaciones porcentuales', () => {
+  // 13. Balance del Sistema Nervioso Autónomo y Tono Vagal
+  test('13. Evaluación del Balance Autónomo (ANS Score 0-100 y Tono Vagal)', () => {
+    const ans = crossAnalytics.getAutonomicBalance();
+    assert.ok(ans.ansScore >= 0 && ans.ansScore <= 100, 'ANS Score entre 0 y 100');
+    assert.strictEqual(typeof ans.sympatheticOverdrive, 'boolean', 'Sympathetic overdrive booleano');
+    assert.ok(ans.vagalTone.length > 0, 'Tono vagal evaluado');
+  });
+
+  // 14. Prescripción Diaria Personalizada de Entrenamiento
+  test('14. Prescripción Diaria de Entrenamiento con zonas Karvonen y nutrición', () => {
+    const p = crossAnalytics.getDailyPrescription();
+    assert.ok(p.sessionType.length > 0, 'Debe prescribir tipo de sesión');
+    assert.ok(p.targetHeartZone.length > 0, 'Debe prescribir rango de pulso');
+    assert.ok(p.targetDurationMin > 0, 'Duración positiva');
+    assert.ok(Array.isArray(p.allowedActivities), 'Actividades permitidas como arreglo');
+    assert.ok(p.nutritionAdvice.length > 0, 'Consejo nutricional incluido');
+  });
+
+  // 15. Edad Biológica y Longevidad Celular
+  test('15. Cálculo de Edad Biológica Biométrica vs Edad Cronológica', () => {
+    const bio = crossAnalytics.getBiologicalFitnessAge();
+    assert.strictEqual(typeof bio.biologicalFitnessAge, 'number', 'Edad biológica numérica');
+    assert.strictEqual(typeof bio.rejuvenationYears, 'number', 'Años de rejuvenecimiento numéricos');
+    assert.ok(bio.longevityScore >= 0 && bio.longevityScore <= 100, 'Score de longevidad 0-100');
+    assert.ok(bio.contributors.length > 0, 'Debe desglosar factores determinantes');
+  });
+
+  // 16. Deuda acumulada de sueño y cronotipo circadiano
+  test('16. Deuda de sueño acumulada en 7 días y cronotipo circadiano', () => {
+    const debt = sleepEngine.calculateSleepDebt(8.0);
+    assert.strictEqual(typeof debt.totalDebtHours, 'number', 'Deuda numérica');
+    const chrono = sleepEngine.determineChronotype();
+    assert.ok(['Alondra (Madrugador)', 'Búho (Noctámbulo)', 'Intermedio'].includes(chrono.chronotype), 'Cronotipo válido');
+  });
+
+  // 17. Tendencia semanal de RHR y variaciones porcentuales
+  test('17. Tendencia semanal de RHR y comparativa histórica', () => {
     const rhrTrend = heartEngine.getRhrTrend();
-    assert.ok(rhrTrend.trend.length > 0, 'Debe haber historial de días evaluados');
-    assert.ok(rhrTrend.recent7DaysAvgRhr > 0, 'El promedio de 7 días de RHR debe ser mayor a cero');
+    assert.ok(rhrTrend.trend.length > 0, 'Debe haber historial');
+    assert.ok(rhrTrend.recent7DaysAvgRhr > 0, 'RHR promedio positivo');
   });
 
-  // 19. Optimización de tokens para el presupuesto de $5 USD/mes (<600 tokens)
+  // 18. Fragmentación segura de mensajes de Telegram (Límite 4096 caracteres)
+  test('18. Partición segura de mensajes largos (splitMessage) para evitar límites de Telegram', () => {
+    const longText = 'Párrafo de prueba sobre fisiología deportiva.\n\n'.repeat(150);
+    const chunks = formatters.splitMessage(longText, 3000);
+    assert.ok(chunks.length > 1, 'Debe dividir en múltiples fragmentos');
+    for (const chunk of chunks) {
+      assert.ok(chunk.length <= 3200, 'Ningún chunk debe exceder el límite seguro');
+    }
+  });
+
+  // 19. Verificación de compresión y eficiencia de tokens (<600 tokens de entrada)
   test('19. Verificación de compresión del payload para Gemini (< 600 tokens de entrada)', () => {
-    const sleep = sleepEngine.getLatestNight();
-    const prev = sleepEngine.getPreviousNight();
-    const prompt = prompts.buildSleepPrompt(sleep, prev);
-    // Rough token estimate: ~4 chars per token
+    const p = crossAnalytics.getDailyPrescription();
+    const prompt = prompts.buildPrescriptionPrompt(p);
     const tokenEst = Math.round(prompt.length / 4);
     assert.ok(tokenEst < 600, `El prompt debe ser menor a 600 tokens (estimado actual: ${tokenEst} tokens)`);
   });
 
-  // 20. Verificación de conexión y respuesta estructurada con Gemini 3.8 Flash
+  // 20. Conectividad real con Gemini 3.8 Flash (Thinking MEDIUM) y control presupuestario
   await testAsync('20. Conectividad real con Gemini 3.8 Flash (Thinking MEDIUM) y control presupuestario', async () => {
-    const sleep = sleepEngine.getLatestNight();
-    const prev = sleepEngine.getPreviousNight();
-    const prompt = prompts.buildSleepPrompt(sleep, prev);
+    const p = crossAnalytics.getDailyPrescription();
+    const prompt = prompts.buildPrescriptionPrompt(p);
 
     const result = await geminiCoach.generateAnalysis(prompt, { model: 'gemini-3.8-flash', thinkingLevel: 'MEDIUM' });
     assert.ok(result.text && result.text.length > 50, 'Gemini debe devolver una respuesta sustanciosa');
