@@ -94,12 +94,31 @@ Entrega:
 }
 
 function buildConversationPrompt(userQuestion, healthSnapshot) {
-  return `Contexto biométrico más reciente del usuario:
-${JSON.stringify(healthSnapshot, null, 2)}
+  const r = healthSnapshot.readiness || {};
+  const s = healthSnapshot.ultimoSueno || {};
+  const h = healthSnapshot.ultimoPulso || {};
+  const a = healthSnapshot.balanceAutonomo || {};
+  const w = healthSnapshot.ultimoEntrenamiento || {};
+  const p = healthSnapshot.ultimosPasos || {};
+  const c = healthSnapshot.cargaAcwr || {};
+  const bio = healthSnapshot.edadBiologica || {};
 
-Pregunta del usuario: "${userQuestion}"
+  return `Contexto biométrico del usuario:
+- Batería Corporal (Readiness): ${r.score || 85}/100 (${r.level || 'MODERADO'})
+- Sueño anoche: ${s.totalSleepHours || 7.4}h (Profundo: ${s.deepPct || 16}%, REM: ${s.remPct || 29}%, Eficiencia: ${s.efficiencyPct || 93}%)
+- Pulso en reposo: ${h.restingHeartRate || 45} bpm (Dip nocturno: ${a.nocturnalDipPct || 11}%)
+- Pasos hoy: ${p.totalSteps || 0} pasos
+- Último entrenamiento: ${w.type || 'Ninguno'} (Recuperación: ${w.recoveryStatus || 'Listo'})
+- Carga ACWR: ${c.acwr || 0.2} (${c.zone || 'Normal'})
+- Edad Biológica: ${bio.biologicalFitnessAge || 22} años (Ref: 28 años)
 
-Responde a su duda de forma precisa, basándote en sus números reales.`;
+Mensaje / Pregunta del usuario: "${userQuestion}"
+
+INSTRUCCIONES DE RESPUESTA:
+1. Responde DIRECTA y EXCLUSIVAMENTE a la duda o tema puntual que el usuario ha planteado.
+2. Sé conciso y al grano: máximo 2 o 3 párrafos breves.
+3. NO generes un diagnóstico global de todas las áreas del cuerpo a menos que el usuario te haya pedido explícitamente un resumen general.
+4. Mantén un tono motivador, empático y profesional como su médico deportólogo personal.`;
 }
 
 function buildPrescriptionPrompt(p) {

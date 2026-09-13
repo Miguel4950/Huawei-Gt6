@@ -63,6 +63,12 @@ class HealthTelegramBot {
     const bot = this.bot;
     const sendTyping = (ctx) => ctx.sendChatAction('typing').catch(() => {});
 
+    // Global error handler to prevent unhandled rejections from freezing the bot
+    bot.catch((err, ctx) => {
+      console.error(`[Bot Error] en update ${ctx?.update?.update_id}:`, err?.message || err);
+      ctx?.reply('⚠️ Ocurrió un inconveniente temporal. Intenta de nuevo o presiona /menu.').catch(() => {});
+    });
+
     // Helper to send messages safely with chunking
     const sendSafeMessage = async (ctx, text) => {
       const chunks = formatters.splitMessage(text);
@@ -81,7 +87,12 @@ class HealthTelegramBot {
         `Analizo tu sueño, frecuencia cardíaca, pasos, oxígeno y entrenamientos con *Gemini 3.8 Flash (Thinking MEDIUM)* ` +
         `para darte diagnósticos médicos y deportivos comprensibles y profundos.\n\n` +
         `👇 *Selecciona una opción del menú o escribe cualquier comando:*`;
-      await ctx.replyWithMarkdown(text, this.getMenuKeyboard());
+      try {
+        await ctx.replyWithMarkdown(text, this.getMenuKeyboard());
+      } catch (err) {
+        console.warn('[Bot] Fallback en menú a texto plano:', err.message);
+        await ctx.reply(text.replace(/[*_`]/g, ''), this.getMenuKeyboard()).catch(() => {});
+      }
     };
     bot.start(handleStart);
     bot.command('menu', handleStart);
@@ -623,10 +634,85 @@ class HealthTelegramBot {
       await handleHelp(ctx);
     });
 
-    // Natural Language fallback
+    // Router inteligente de lenguaje natural y comandos
     bot.on('text', async (ctx) => {
-      const text = ctx.message.text;
-      if (!text || text.startsWith('/')) return;
+      const rawText = ctx.message.text;
+      if (!rawText) return;
+      const text = rawText.trim();
+      
+      // Si ya comienza con barra '/', Telegraf lo procesa con sus comandos registrados
+      if (text.startsWith('/')) return;
+
+      const lower = text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+
+      // 1. Saludos habituales (0 tokens gastados, respuesta inmediata <10ms con teclado)
+      const isGreeting = ['hola', 'ola', 'buenas', 'buen dia', 'buenos dias', 'buenas tardes', 'buenas noches', 'hey', 'hello', 'hi', 'que tal', 'saludos'].includes(lower)
+        || lower.match(/^(hola|ola|buenas|buen dia|hey|hi)\b/);
+
+      if (isGreeting) {
+        const greetingText = `👋 *¡Hola! ¿En qué te puedo ayudar hoy?*\n\n` +
+          `Estoy conectado a tu reloj para monitorear tu recuperación y guiar tus entrenamientos.\n\n` +
+          `👇 *Selecciona una opción del menú o hazme cualquier pregunta:*`;
+        try {
+          return await ctx.replyWithMarkdown(greetingText, this.getMenuKeyboard());
+        } catch (e) {
+          return await ctx.reply(greetingText.replace(/[*_`]/g, ''), this.getMenuKeyboard()).catch(() => {});
+        }
+      }
+
+      // 2. Si el usuario escribe el nombre de un comando sin la barra '/'
+      if (['menu', 'inicio', 'start', 'opciones'].includes(lower)) {
+        return handleStart(ctx);
+      }
+      if (['ayuda', 'help', 'comandos', 'guia'].includes(lower)) {
+        return handleHelp(ctx);
+      }
+      if (['comodormi', 'sueno', 'dormi', 'dormir', 'como dormi', 'como estuvo mi sueno'].includes(lower)) {
+        return handleSleep(ctx);
+      }
+      if (['prescripcion', 'plan', 'plan hoy', 'que entreno hoy', 'entrenamiento hoy', 'rutina', 'entreno hoy'].includes(lower)) {
+        return handlePrescription(ctx);
+      }
+      if (['readiness', 'bateria', 'recuperacion', 'energia'].includes(lower)) {
+        return handleReadiness(ctx);
+      }
+      if (['corazon', 'pulso', 'frecuencia cardiaca', 'latidos'].includes(lower)) {
+        return handleHeart(ctx);
+      }
+      if (['pasos', 'caminata', 'actividad fisica', 'km', 'distancia'].includes(lower)) {
+        return handleSteps(ctx);
+      }
+      if (['acwr', 'carga', 'sobreentrenamiento', 'carga de entrenamiento'].includes(lower)) {
+        return handleAcwr(ctx);
+      }
+      if (['autonomo', 'tono vagal', 'estres', 'nervio vago', 'sistema autonomo'].includes(lower)) {
+        return handleAutonomic(ctx);
+      }
+      if (['edad biologica', 'longevidad', 'edad'].includes(lower)) {
+        return handleBiologicalAge(ctx);
+      }
+      if (['fases', 'fases de sueno', 'rem', 'profundo'].includes(lower)) {
+        const sleep = sleepEngine.getLatestNight();
+        return sendSafeMessage(ctx, formatters.formatSleepSummary(sleep, ''));
+      }
+      if (['zonas', 'zonas cardiacas'].includes(lower)) {
+        const heart = heartEngine.getLatestDayStats();
+        return sendSafeMessage(ctx, formatters.formatHeartReport(heart, heartEngine.getRhrTrend(), ''));
+      }
+      if (['hoy', 'resumen hoy', 'tablero', 'dia'].includes(lower)) {
+        ctx.message.text = '/hoy';
+        return bot.handleUpdate({ message: { chat: ctx.chat, text: '/hoy' } });
+      }
+      if (['semanal', 'resumen semanal', 'informe semanal'].includes(lower)) {
+        ctx.message.text = '/semanal';
+        return bot.handleUpdate({ message: { chat: ctx.chat, text: '/semanal' } });
+      }
+      if (['presupuesto', 'saldo', 'tokens', 'costo'].includes(lower)) {
+        ctx.message.text = '/presupuesto';
+        return bot.handleUpdate({ message: { chat: ctx.chat, text: '/presupuesto' } });
+      }
+
+      // 3. Pregunta específica del usuario en lenguaje natural
       sendTyping(ctx);
 
       const snapshot = {
@@ -646,7 +732,7 @@ class HealthTelegramBot {
         const aiRes = await geminiCoach.generateAnalysis(prompt);
         await sendSafeMessage(ctx, `💬 *Respuesta de tu Coach:*\n\n${aiRes.text}`);
       } catch (err) {
-        await ctx.replyWithMarkdown(`No pude procesar la consulta: ${err.message}`);
+        await sendSafeMessage(ctx, `⚠️ No pude procesar la consulta con IA: ${err.message}`);
       }
     });
   }
