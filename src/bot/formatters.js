@@ -209,11 +209,33 @@ function convertMarkdownTables(text) {
 }
 
 /**
+ * Cleans markdown formatting for Telegram:
+ * 1. Converts Markdown tables to bullet cards
+ * 2. Converts ### and #### headers into clean bold emoji headers (Telegram doesn't support # headers)
+ * 3. Cleans triple asterisks ***text*** to *text*
+ */
+function cleanTelegramMarkdown(text) {
+  if (!text) return '';
+
+  // 1. Convert tables
+  let cleaned = convertMarkdownTables(text);
+
+  // 2. Convert markdown headers (### and ####) into clean bold emoji headings
+  cleaned = cleaned.replace(/^[ \t]*#{4,6}\s*(.+)$/gm, '🔸 *$1*');
+  cleaned = cleaned.replace(/^[ \t]*#{1,3}\s*(.+)$/gm, '🔹 *$1*');
+
+  // 3. Clean triple asterisks
+  cleaned = cleaned.replace(/\*\*\*([^*]+)\*\*\*/g, '*$1*');
+
+  return cleaned;
+}
+
+/**
  * Splits text into safe chunks for Telegram's 4096 character limit
  */
 function splitMessage(text, maxLength = 3900) {
   if (!text) return [''];
-  const formattedText = convertMarkdownTables(text);
+  const formattedText = cleanTelegramMarkdown(text);
   if (formattedText.length <= maxLength) return [formattedText];
   const chunks = [];
   let current = '';
@@ -313,6 +335,7 @@ module.exports = {
   formatBiologicalAgeReport,
   formatAcwrReport,
   convertMarkdownTables,
+  cleanTelegramMarkdown,
   splitMessage
 };
 

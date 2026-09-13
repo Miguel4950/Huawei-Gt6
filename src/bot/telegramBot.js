@@ -162,6 +162,7 @@ class HealthTelegramBot {
         `⚙️ *Herramientas y Sistema:*\n` +
         `• /menu — Abre el menú interactivo con botones rápidos\n` +
         `• /lista (o /comandos) — Muestra esta lista de comandos\n` +
+        `• /edad [años] — Consultar o actualizar tu edad real (actual: 21 años)\n` +
         `• /sync — Forzar sincronización inmediata desde Google Drive\n` +
         `• /presupuesto — Contador de tokens consumidos y saldo de tus $5 USD/mes\n\n` +
         `📎 *Subida Directa:* Puedes arrastrar y soltar cualquier archivo CSV en este chat para analizarlo al instante.`;
@@ -579,6 +580,25 @@ class HealthTelegramBot {
         `• *Costo total acumulado:* *$${s.totalCostUsd} USD*\n` +
         `• *Presupuesto restante ($5.00/mes):* *$${s.remainingBudgetUsd} USD*\n\n` +
         `🛡️ *Garantía de Presupuesto:* Gracias al motor de compresión local, cada consulta cuesta menos de $0.0005 USD. Tienes saldo para más de 10,000 consultas adicionales este mes.`;
+      await sendSafeMessage(ctx, t);
+    });
+
+    // EDAD CRONOLOGICA & PERFIL
+    bot.command(['edad', 'perfil'], async (ctx) => {
+      const raw = ctx.message.text || '';
+      const parts = raw.trim().split(/\s+/);
+      if (parts.length > 1 && !isNaN(parseInt(parts[1], 10))) {
+        const newAge = parseInt(parts[1], 10);
+        if (newAge >= 10 && newAge <= 100) {
+          config.USER_PROFILE.age = newAge;
+          return ctx.replyWithMarkdown(`✅ *Edad cronológica actualizada:* Has configurado tu edad en *${newAge} años*.\nTodos los cálculos de longevidad celular, edad biológica y zonas cardíacas usarán esta cifra.`);
+        }
+      }
+
+      const t = `👤 *PERFIL BIOMÉTRICO DEL ATLETA*\n\n` +
+        `• *Nombre:* *${config.USER_PROFILE.name}*\n` +
+        `• *Edad Cronológica Real:* *${config.USER_PROFILE.age} años* (Año: ${config.USER_PROFILE.birthYear})\n\n` +
+        `💡 *Para ajustar tu edad:* escribe \`/edad [tus años]\` (ej: \`/edad 21\` o \`/edad 22\`).`;
       await sendSafeMessage(ctx, t);
     });
 

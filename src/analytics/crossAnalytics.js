@@ -4,6 +4,7 @@ const oxygenEngine = require('./oxygenEngine');
 const activityEngine = require('./activityEngine');
 const workoutEngine = require('./workoutEngine');
 const readinessEngine = require('./readinessEngine');
+const config = require('../config/config');
 
 class CrossAnalytics {
   /**
@@ -289,8 +290,8 @@ class CrossAnalytics {
     const sleep = sleepEngine.getLatestNight();
     const oxy = oxygenEngine.getLatestDayStats();
 
-    // Baseline reference: 28 years (or default athletic user baseline)
-    const CHRONO_AGE_REF = 28;
+    // Baseline reference: Dynamic user age from profile (default 21 years)
+    const CHRONO_AGE_REF = (config.USER_PROFILE && config.USER_PROFILE.age) || 21;
     let delta = 0;
     const contributors = [];
 

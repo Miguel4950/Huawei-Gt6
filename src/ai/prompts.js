@@ -1,97 +1,100 @@
 /**
  * Optimized prompt templates designed for high-density physiological insights
- * with generous space for thorough, complete analyses without premature cutoffs.
+ * with concise, punchy, athlete-friendly executive summaries without text spam.
  */
 
-const SYSTEM_INSTRUCTION = `Eres el Asistente Biométrico y Médico Deportólogo de élite de un atleta que utiliza un smartwatch Huawei GT con tecnología biométrica TruSense.
-Tu misión es interpretar con rigor científico, profundidad y calidez los datos fisiológicos (sueño, variabilidad, pulso en reposo, zonas cardíacas, actividades y entrenamientos).
-REGLAS IMPORTANTES:
-1. Responde SIEMPRE en español, con un tono motivador, profesional y exhaustivo.
-2. Desarrolla las respuestas de forma COMPLETA: no dejes secciones incompletas ni a medias. Explica el contexto biológico detrás de cada cifra.
-3. Utiliza formato Markdown limpio con negritas, listas ordenadas y emojis claros.
-4. PROHIBICIÓN ESTRICTA DE TABLAS: Telegram NO soporta tablas Markdown (| col | col |) y se ven totalmente rotas en celulares. NUNCA generes tablas con barras |. Presenta toda comparativa, métrica o dato mediante listas con viñetas elegantes (ej: • Métrica: Noche A (valor) ➔ Noche B (valor) — Análisis clínico).
-5. Analiza siempre los 'por qué': por ejemplo, qué relación hay entre el esfuerzo físico, la temperatura, el pulso en reposo y las fases de sueño.
-6. Termina SIEMPRE con recomendaciones prácticas y accionables para el atleta.`;
+const SYSTEM_INSTRUCTION = `Eres el Coach Biométrico y Médico Deportólogo personal de Miguel (21 años, deportista activo).
+Tu misión es interpretar con rigor y máxima claridad los datos fisiológicos de su Huawei GT (tecnología TruSense).
+
+REGLAS DE ORO DE ESTILO Y EXTENSIÓN:
+1. EQUILIBRIO EN LA EXTENSIÓN (PUNCHY Y DIRECTO):
+   - Sé conciso, dinámico y al grano. NUNCA escribas parrafadas teóricas interminables ni ensayos académicos que nadie lee en Telegram.
+   - En respuestas a consultas (/pregunta): máximo 2 o 3 párrafos breves o viñetas directas.
+   - En diagnósticos (/comodormi, /prescripcion, /edad_biologica): mantén un formato ejecutivo de 150 a 300 palabras, destacando los números clave y qué hacer hoy.
+2. LENGUAJE ENTENDIBLE (CERO RELLENO BIOQUÍMICO):
+   - Prohibido abusar de términos complejos innecesarios (como PGC-1α, AMPK, autofagia celular, mitofagia, senescencia) a menos que el usuario pregunte específicamente por ellos.
+   - Explica el impacto práctico en energía, rendimiento y recuperación muscular con lenguaje natural, motivador y claro.
+3. PROHIBICIÓN TOTAL DE ENCABEZADOS CON HASHTAGS (#, ##, ###, ####):
+   - Telegram NO renderiza encabezados con '#' y se ven horribles. NUNCA uses '#' para títulos.
+   - Usa SIEMPRE negrita con emojis para separar secciones (ejemplo: 🔹 *Veredicto Clínico:* o 🎯 *Consejo de Hoy:*).
+4. PROHIBICIÓN TOTAL DE TABLAS MARKDOWN:
+   - Telegram no soporta tablas (| col | col |). Presenta comparaciones en listas con viñetas elegantes (ejemplo: • Métrica: Noche 1 ➔ Noche 2 — Detalle).
+5. EDAD REAL DEL ATLETA:
+   - Miguel tiene 21 años (nacido en 2004). NUNCA inventes que tiene 28 años ni supongas otra edad.`;
 
 function buildSleepPrompt(sleepData, prevSleepData) {
-  return `Realiza un análisis completo y detallado de la última noche de sueño con estos datos biométricos exactos:
-- Fecha de la noche: ${sleepData.date}
-- Horario en cama: ${sleepData.startTime} ➔ ${sleepData.endTime} (Total en cama: ${sleepData.inBedHours} horas)
-- Tiempo real dormido: ${sleepData.totalSleepHours} horas
-- Eficiencia del sueño: ${sleepData.efficiencyPct}% (Puntuación de sueño: ${sleepData.sleepScore}/100)
-- Fases del sueño:
-  • Fase REM: ${sleepData.remPct}% (${(sleepData.remSeconds / 60).toFixed(0)} min) [Ideal: 20-25%]
-  • Sueño Profundo: ${sleepData.deepPct}% (${(sleepData.deepSeconds / 60).toFixed(0)} min) [Ideal: 15-20%]
-  • Sueño Ligero: ${sleepData.lightPct}% (${(sleepData.lightSeconds / 60).toFixed(0)} min)
-  • Tiempo Despierto: ${sleepData.awakePct}% (${(sleepData.awakeSeconds / 60).toFixed(0)} min en ${sleepData.awakeCount} microdespertares)
-- Ciclos ultradianos (~90 min): ${sleepData.cyclesCount} ciclos completados
-- Estado al despertar: Despertó en fase ${sleepData.lastStage.toUpperCase()} (${sleepData.wokenUpInDeep ? 'Fase profunda - Riesgo de inercia del sueño' : 'Fase ligera/REM - Despertar óptimo'})
-${prevSleepData ? `- Noche anterior comparativa (${prevSleepData.date}): Durmió ${prevSleepData.totalSleepHours}h (REM: ${prevSleepData.remPct}%, Profundo: ${prevSleepData.deepPct}%, Eficiencia: ${prevSleepData.efficiencyPct}%)` : ''}
+  return `Analiza la última noche de sueño con estos datos biométricos exactos:
+- Fecha: ${sleepData.date}
+- Horario en cama: ${sleepData.startTime} ➔ ${sleepData.endTime} (${sleepData.inBedHours}h en cama)
+- Tiempo real dormido: ${sleepData.totalSleepHours}h (Eficiencia: ${sleepData.efficiencyPct}%, Score: ${sleepData.sleepScore}/100)
+- Fases: REM ${sleepData.remPct}%, Profundo ${sleepData.deepPct}%, Ligero ${sleepData.lightPct}%, Despierto ${sleepData.awakePct}% (${sleepData.awakeCount} microdespertares)
+- Ciclos ultradianos (~90 min): ${sleepData.cyclesCount} ciclos | Despertar: fase ${sleepData.lastStage.toUpperCase()}
+${prevSleepData ? `- Noche anterior (${prevSleepData.date}): ${prevSleepData.totalSleepHours}h (REM: ${prevSleepData.remPct}%, Profundo: ${prevSleepData.deepPct}%)` : ''}
 
-Estructura tu diagnóstico de forma completa (RECUERDA: NO USES TABLAS MARKDOWN, usa listas con viñetas):
-1. 🏆 **Veredicto Clínico General:** Calificación de 1 a 100 con justificación.
-2. 🧠 **Análisis de Recuperación Mental (Fase REM) y Física (Sueño Profundo):** Qué beneficios celulares y cognitivos obtuvo el atleta con estos porcentajes.
-3. 🔄 **Evaluación de Ciclos e Higiene Circadiana:** Regularidad del horario, latencia y si el despertar fue limpio.
-4. 📈 **Comparativa vs Noche Anterior:** Progresos o cambios notables (en viñetas con formato • Métrica: Noche Anterior ➔ Noche Actual — Análisis).
-5. 🎯 **2 Consejos Accionables:** Recomendaciones precisas para el día de hoy.`;
+INSTRUCCIONES DE RESPUESTA:
+- Sé conciso, ejecutivo y ágil (máximo 250 palabras). NO uses encabezados '#' ni tablas '|'.
+- Estructura con negrita y emojis:
+  🏆 *Veredicto General:* 1-2 frases con la nota y sensación física esperada hoy.
+  🧠 *Recuperación Mental & Física:* Breve balance del sueño profundo y REM en viñetas cortas.
+  📈 *Comparativa vs Noche Anterior:* 2 viñetas breves (ej: • Métrica: Noche A ➔ Noche B).
+  🎯 *Consejos Prácticos para Hoy:* 2 acciones claras y directas.`;
 }
 
 function buildWorkoutPrompt(workoutData) {
-  return `Realiza un análisis profundo del último entrenamiento registrado por el smartwatch:
-- Tipo de actividad / Deporte: ${workoutData.type}
-- Fecha y hora: ${workoutData.datetime}
-- Duración activa: ${workoutData.durationMinutes} minutos (${workoutData.activeSeconds} seg)
-- Gasto calórico: ${workoutData.calories} kcal
-- Distancia recorrida: ${workoutData.distanceKm} km
-- Frecuencia cardíaca media: ${workoutData.avgHr} bpm
-- Frecuencia cardíaca máxima (Pico): ${workoutData.maxHr} bpm
-- Nivel de intensidad calculado: ${workoutData.intensity}
-- Carga de entrenamiento estimada (EPOC): ${workoutData.trainingLoad} puntos
-- Tiempo total de recuperación sugerido: ${workoutData.recoveryHoursTotal} horas
-- Estado actual de recuperación: ${workoutData.recoveryStatus} (${workoutData.hoursRemaining}h restantes)
+  return `Analiza el último entrenamiento registrado:
+- Actividad: ${workoutData.type} | Fecha: ${workoutData.datetime}
+- Duración: ${workoutData.durationMinutes} min | Calorías: ${workoutData.calories} kcal | Distancia: ${workoutData.distanceKm} km
+- Pulso: Media ${workoutData.avgHr} bpm | Pico ${workoutData.maxHr} bpm | Intensidad: ${workoutData.intensity}
+- Carga EPOC: ${workoutData.trainingLoad} pts | Horas de recuperación: ${workoutData.recoveryHoursTotal}h (Restantes: ${workoutData.hoursRemaining}h)
 
-Estructura tu análisis:
-1. 💥 **Evaluación del Rendimiento Cardiovascular:** Análisis del pulso medio vs pico máximo y zonas alcanzadas.
-2. 🔋 **Carga Fisiológica y Desgaste Metabólico:** Impacto en el sistema neuromuscular y consumo calórico.
-3. ⏱️ **Cronograma de Recuperación Biológica:** Cuántas horas necesita el cuerpo para supercompensar y cuándo conviene volver a entrenar fuerte.
-4. 🥗 **Estrategia Nutricional y de Hidratación:** Qué reponer hoy para acelerar la regeneración muscular.`;
+INSTRUCCIONES:
+- Sé dinámico y al grano (máximo 200 palabras). NO uses '#' ni tablas '|'.
+- Estructura:
+  💥 *Impacto Cardiovascular:* Análisis rápido del pulso medio vs pico.
+  🔋 *Carga & Recuperación:* Estado muscular y horas recomendadas antes de volver a exigir el cuerpo.
+  🥗 *Nutrición Post-Entreno:* Qué reponer hoy de forma sencilla.`;
 }
 
 function buildReadinessPrompt(readinessData) {
   const c = readinessData.components;
-  return `Evalúa el nivel de Batería Corporal y Score de Recuperación para hoy:
-- Score de Recuperación: ${readinessData.score}/100 [Nivel: ${readinessData.level} ${readinessData.color}]
-- Sueño anoche: ${c.sleepHours}h (Eficiencia: ${c.efficiencyPct}%, Profundo: ${c.deepPct}%, REM: ${c.remPct}%)
-- Frecuencia Cardíaca en Reposo (RHR): ${c.currentRhr} bpm (Promedio base de 7 días: ${c.baselineRhr} bpm, Delta: ${c.rhrDelta > 0 ? '+' : ''}${c.rhrDelta} bpm)
-- Oxígeno Mínimo (SpO2): ${c.minSpo2}%
+  return `Evalúa la Batería Corporal y Score de Recuperación para hoy:
+- Score: ${readinessData.score}/100 [Nivel: ${readinessData.level} ${readinessData.color}]
+- Sueño: ${c.sleepHours}h (Eficiencia: ${c.efficiencyPct}%, Profundo: ${c.deepPct}%, REM: ${c.remPct}%)
+- RHR en reposo: ${c.currentRhr} bpm (Base 7d: ${c.baselineRhr} bpm, Delta: ${c.rhrDelta > 0 ? '+' : ''}${c.rhrDelta} bpm)
+- Oxígeno mínimo: ${c.minSpo2}%
 
-Entrega:
-1. Estado del semáforo de recuperación y lo que significa para hoy.
-2. ¿Qué intensidad de entrenamiento o actividad física tolera el cuerpo hoy (Alta, Media, Descanso Activo)?
-3. Acción clave para maximizar energía durante el día.`;
+INSTRUCCIONES:
+- Sé breve y ejecutivo (máximo 150 palabras). NO uses '#' ni tablas '|'.
+- Estructura:
+  ⚡ *Semáforo de Energía:* Qué significa el score para tu jornada.
+  🏋️ *Capacidad de Entrenamiento Hoy:* Nivel de exigencia física sugerido.
+  🎯 *Acción Clave:* 1 consejo para optimizar tu día.`;
 }
 
 function buildHeartPrompt(heartData, rhrTrend, stressSpikes) {
   return `Analiza el estado cardiovascular de hoy:
-- Frecuencia media: ${heartData.avgBpm} bpm | Mínima: ${heartData.minBpm} bpm | Máxima: ${heartData.maxBpm} bpm
-- Frecuencia Cardíaca en Reposo (RHR): ${heartData.restingHeartRate} bpm (Media reciente de 7 días: ${rhrTrend.recent7DaysAvgRhr} bpm)
-- Zonas de tiempo: Z1 (Reposo): ${heartData.zones.z1Pct}% | Z2 (Quema Grasa): ${heartData.zones.z2Pct}% | Z3 (Cardio): ${heartData.zones.z3Pct}% | Z4 (Anaeróbica): ${heartData.zones.z4Pct}% | Z5 (Máxima): ${heartData.zones.z5Pct}%
-- Episodios de taquicardia en reposo (Picos de estrés >100 bpm sin pasos): ${stressSpikes.length} episodios.
+- Pulso: Media ${heartData.avgBpm} bpm | Mín ${heartData.minBpm} bpm | Máx ${heartData.maxBpm} bpm
+- RHR en reposo: ${heartData.restingHeartRate} bpm (Media 7d: ${rhrTrend.recent7DaysAvgRhr} bpm)
+- Zonas: Z1 ${heartData.zones.z1Pct}%, Z2 ${heartData.zones.z2Pct}%, Z3 ${heartData.zones.z3Pct}%, Z4 ${heartData.zones.z4Pct}%, Z5 ${heartData.zones.z5Pct}%
+- Taquicardias en reposo: ${stressSpikes.length} episodios.
 
-Entrega:
-1. Diagnóstico del pulso en reposo y carga autonómica.
-2. Desglose del esfuerzo en zonas cardíacas.
-3. Veredicto sobre los picos de estrés si los hubo.`;
+INSTRUCCIONES:
+- Sé claro y conciso (máximo 180 palabras). NO uses '#' ni tablas '|'.
+- Estructura:
+  ❤️ *Diagnóstico Cardiovascular:* Análisis del RHR y estabilidad.
+  📊 *Zonas del Día:* Balance de intensidades.
+  ⚡ *Veredicto de Estrés:* Conclusión sobre los picos en reposo.`;
 }
 
 function buildWeeklyPrompt(summaryData) {
-  return `Genera el Informe Ejecutivo Semanal de Salud Biométrica:
+  return `Genera el Informe Ejecutivo Semanal de Salud:
 ${JSON.stringify(summaryData, null, 2)}
 
-Entrega:
-1. Resumen de progreso de la semana (Logros vs Áreas a Mejorar).
-2. Evolución del descanso y del corazón en reposo.
-3. Las 2 metas prioritarias para la semana entrante.`;
+INSTRUCCIONES:
+- Formato ejecutivo y claro (máximo 250 palabras). NO uses '#' ni tablas '|'.
+- Estructura:
+  📈 *Balance de la Semana:* Logros principales y tendencias de pulso/sueño.
+  🎯 *2 Metas Prioritarias:* Objetivos concretos para la próxima semana.`;
 }
 
 function buildConversationPrompt(userQuestion, healthSnapshot) {
@@ -105,67 +108,72 @@ function buildConversationPrompt(userQuestion, healthSnapshot) {
   const bio = healthSnapshot.edadBiologica || {};
 
   return `Contexto biométrico del usuario:
-- Batería Corporal (Readiness): ${r.score || 85}/100 (${r.level || 'MODERADO'})
+- Atleta: Miguel (21 años, nacido en 2004)
+- Batería Corporal: ${r.score || 85}/100 (${r.level || 'MODERADO'})
 - Sueño anoche: ${s.totalSleepHours || 7.4}h (Profundo: ${s.deepPct || 16}%, REM: ${s.remPct || 29}%, Eficiencia: ${s.efficiencyPct || 93}%)
 - Pulso en reposo: ${h.restingHeartRate || 45} bpm (Dip nocturno: ${a.nocturnalDipPct || 11}%)
 - Pasos hoy: ${p.totalSteps || 0} pasos
 - Último entrenamiento: ${w.type || 'Ninguno'} (Recuperación: ${w.recoveryStatus || 'Listo'})
 - Carga ACWR: ${c.acwr || 0.2} (${c.zone || 'Normal'})
-- Edad Biológica: ${bio.biologicalFitnessAge || 22} años (Ref: 28 años)
+- Edad Biológica: ${bio.biologicalFitnessAge || 20} años (Edad real de Miguel: 21 años)
 
-Mensaje / Pregunta del usuario: "${userQuestion}"
+Pregunta del usuario: "${userQuestion}"
 
 INSTRUCCIONES DE RESPUESTA:
-1. Responde DIRECTA y EXCLUSIVAMENTE a la duda o tema puntual que el usuario ha planteado.
-2. Sé conciso y al grano: máximo 2 o 3 párrafos breves.
-3. NO generes un diagnóstico global de todas las áreas del cuerpo a menos que el usuario te haya pedido explícitamente un resumen general.
-4. Mantén un tono motivador, empático y profesional como su médico deportólogo personal.`;
+1. Responde DIRECTA y EXCLUSIVAMENTE a la duda planteada por Miguel.
+2. Sé conciso y breve: máximo 2 o 3 párrafos cortos o viñetas directas.
+3. NO uses encabezados '#' ni tablas '|'.
+4. NUNCA menciones que tiene 28 años: Miguel tiene 21 años.
+5. Lenguaje cercano, motivador y sin rodeos.`;
 }
 
 function buildPrescriptionPrompt(p) {
-  return `Diseña la sesión de entrenamiento personalizada para hoy basada en este diagnóstico multivariable:
-- Estado del Atleta: Batería Corporal ${p.readinessScore}/100 (${p.readinessLevel}) | Tono Vagal: ${p.ansScore}/100
-- Carga ACWR (Ratio Agudo:Crónico): ${p.acwr} (${p.acwrZone})
-- Sesión Prescrita: ${p.sessionType} [Nivel: ${p.intensityLevel} ${p.icon}]
-- Rango Cardíaco Objetivo (Fórmula Karvonen): ${p.targetHeartZone}
-- Duración Sugerida: ${p.targetDurationMin} minutos
+  return `Diseña la sesión de entrenamiento personalizada para hoy:
+- Atleta: Miguel (21 años) | Batería Corporal: ${p.readinessScore}/100 | Tono Vagal: ${p.ansScore}/100
+- Carga ACWR: ${p.acwr} (${p.acwrZone}) | Sesión Prescrita: ${p.sessionType} [${p.intensityLevel} ${p.icon}]
+- Rango Cardíaco Objetivo (Karvonen): ${p.targetHeartZone} | Duración Sugerida: ${p.targetDurationMin} min
 - Actividades Permitidas: ${p.allowedActivities.join(', ')}
-- Enfoque Fisiológico: ${p.primaryFocus}
-- Fatiga Residual Previa: ${p.residualWorkoutFatigue}
+- Enfoque: ${p.primaryFocus}
 
-Estructura el entrenamiento de forma profesional y completa:
-1. ⏱️ **Protocolo de la Sesión:** Calentamiento neuromuscular (8-10 min), Bloque Central (manteniendo el rango de FC objetivo), y Vuelta a la Calma.
-2. 🧬 **Explicación Fisiológica:** Por qué esta intensidad exacta favorece su recuperación o adaptación biológica sin sobreentrenar.
-3. 💧 **Estrategia Nutricional e Hidratación:** Qué comer antes y después para máxima absorción y rendimiento.`;
+INSTRUCCIONES:
+- Sé directo, práctico y motivador (máximo 250 palabras). NO uses '#' ni tablas '|'.
+- Estructura:
+  🎯 *Sesión de Hoy:* Objetivo, duración y zona de pulso objetivo.
+  ⏱️ *Estructura del Entreno:* Calentamiento (5 min), Bloque Principal y Vuelta a la Calma.
+  🥗 *Nutrición & Hidratación Rápida:* 2 pautas claras antes y después.`;
 }
 
 function buildAutonomicPrompt(ans) {
   return `Diagnóstico del Sistema Nervioso Autónomo y Tono Vagal:
 - Score Autonómico: ${ans.ansScore}/100 [${ans.state}]
-- Dip Cardíaco Nocturno: ${ans.nocturnalDipPct}% (${ans.dippingStatus}) [Normal: 10-20%]
-- Frecuencia Cardíaca en Reposo: ${ans.currentRhr} bpm (Base 7d: ${ans.baselineRhr} bpm, Delta: ${ans.rhrDelta > 0 ? '+' : ''}${ans.rhrDelta} bpm)
-- Ratio de Recuperación de Sueño: ${ans.sleepRecoveryRatio} (Ideal > 0.60)
-- Índice de Tensión Cardiovascular (CSI): ${ans.cardiovascularStrainIndex}/100
-- Predominio Simpático / Estrés: ${ans.sympatheticOverdrive ? 'SÍ (Alerta de sobrecarga)' : 'NO (Equilibrio adecuado)'}
+- Dip Cardíaco Nocturno: ${ans.nocturnalDipPct}% (${ans.dippingStatus})
+- Frecuencia en Reposo: ${ans.currentRhr} bpm (Base 7d: ${ans.baselineRhr} bpm)
+- Ratio Recuperación Sueño: ${ans.sleepRecoveryRatio}
 
-Entrega un informe clínico:
-1. 🧠 **Balance Simpático vs Parasimpático:** Qué nos dice el descenso nocturno de pulso y la variabilidad sobre la fatiga acumulada.
-2. ❤️ **Salud Endotelial y Barorreceptores:** Evaluación del fenómeno dipper nocturno.
-3. 🧘 **2 Técnicas de Regulación Vagal:** Prácticas para inducir relajación profunda hoy.`;
+INSTRUCCIONES:
+- Sé conciso y al grano (máximo 200 palabras). NO uses '#' ni tablas '|'.
+- Estructura:
+  🧠 *Balance Autónomo:* 2 líneas sobre tu tono vagal y fatiga acumulada.
+  ❤️ *Salud Cardíaca Nocturna:* Evaluación breve del dip nocturno.
+  🧘 *Consejo de Regulación Vagal:* 1 o 2 pautas prácticas para hoy.`;
 }
 
 function buildBiologicalAgePrompt(bio) {
   return `Evaluación de Edad Biológica y Salud Celular:
-- Edad Cronológica de Referencia: ${bio.chronologicalReferenceAge} años
-- Edad Biológica Calculada: ${bio.biologicalFitnessAge} años (${bio.rejuvenationYears > 0 ? `${bio.rejuvenationYears} años más joven` : `${Math.abs(bio.rejuvenationYears)} años de sobrecarga`})
+- Atleta: Miguel, 21 años cronológicos (IMPORTANTE: tiene 21 años, NUNCA digas 28 años).
+- Edad Biológica Calculada: ${bio.biologicalFitnessAge} años (${bio.rejuvenationYears > 0 ? `${bio.rejuvenationYears} años más joven` : 'en equilibrio'})
 - Score de Longevidad Celular: ${bio.longevityScore}/100
 - Factores Determinantes:
 ${bio.contributors.map(c => `  • ${c.factor}: ${c.impactYears > 0 ? '+' : ''}${c.impactYears} años`).join('\n')}
 
-Entrega:
-1. 🧬 **Veredicto de Edad Biológica:** Por qué sus biomarcadores reflejan este estado metabólico y cardiovascular.
-2. 🛡️ **Puntos Fuertes y Puntos de Vulnerabilidad.**
-3. 🚀 **Plan de Longevidad:** 2 intervenciones de estilo de vida para seguir rejuveneciendo sus arterias y mitocondrias.`;
+INSTRUCCIONES DE RESPUESTA:
+- Sé breve, ágil y motivador (máximo 200 palabras).
+- PROHIBIDO usar jerga bioquímica pesada (nada de PGC-1α, AMPK, mitofagia, senescencia celular).
+- NO uses encabezados '#' ni tablas '|'.
+- Estructura:
+  🧬 *Veredicto:* 2 líneas explicando por qué su cuerpo rinde a esta edad biológica.
+  ⚡ *Puntos Fuertes:* 2 viñetas clave.
+  🚀 *2 Consejos Prácticos de Longevidad:* 2 hábitos sencillos y aplicables para el día a día.`;
 }
 
 module.exports = {
@@ -180,4 +188,3 @@ module.exports = {
   buildAutonomicPrompt,
   buildBiologicalAgePrompt
 };
-

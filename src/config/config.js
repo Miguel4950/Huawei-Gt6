@@ -39,5 +39,10 @@ module.exports = {
     sleepHours: parseFloat(process.env.GOAL_SLEEP_HOURS || '8.0'),
     deepSleepTargetPct: 18.0,
     remSleepTargetPct: 22.0
+  },
+  USER_PROFILE: {
+    name: process.env.USER_NAME || 'Miguel',
+    birthYear: parseInt(process.env.USER_BIRTH_YEAR || '2004', 10),
+    age: parseInt(process.env.USER_AGE || '21', 10)
   }
 };

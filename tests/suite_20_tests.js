@@ -196,11 +196,17 @@ async function run20TestSuite() {
       assert.ok(chunk.length <= 3200, 'Ningún chunk debe exceder el límite seguro');
     }
 
-    // Probar conversión automática de tabla Markdown
+    // Probar conversión automática de tabla Markdown y eliminación de encabezados ###
     const sampleTable = `| Métrica | Noche 11 | Noche 12 | Análisis |\n|---|---|---|---|\n| **Tiempo Total** | 7.55 h | 7.43 h | Duración estable |`;
     const converted = formatters.convertMarkdownTables(sampleTable);
     assert.ok(!converted.includes('|'), 'No debe contener caracteres de barra de tabla');
     assert.ok(converted.includes('• *Tiempo Total:* 7.55 h ➔ *7.43 h* — Duración estable'), 'Debe formatear como viñeta');
+
+    const sampleHeaders = `### Título Sección\n#### Subtítulo`;
+    const cleanH = formatters.cleanTelegramMarkdown(sampleHeaders);
+    assert.ok(!cleanH.includes('#'), 'No debe contener caracteres almohadilla #');
+    assert.ok(cleanH.includes('🔹 *Título Sección*'), 'Debe convertir ### a viñeta con emoji');
+    assert.ok(cleanH.includes('🔸 *Subtítulo*'), 'Debe convertir #### a viñeta con emoji');
   });
 
   // 19. Verificación de compresión y eficiencia de tokens (<600 tokens de entrada)
