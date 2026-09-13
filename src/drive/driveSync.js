@@ -56,6 +56,10 @@ class DriveSync {
     return null;
   }
 
+  sanitizeFileName(name) {
+    return name.replace(/[<>:"/\\|?*]/g, '_');
+  }
+
   async syncAll() {
     if (!this.init()) {
       return { success: false, syncedCount: 0, message: 'Credenciales de Google Drive no disponibles en el servidor.' };
@@ -63,43 +67,37 @@ class DriveSync {
 
     let syncedCount = 0;
     try {
-      // 0. Validar acceso a la carpeta raíz o detectar carpeta compartida
-      let targetFolderId = this.rootFolderId;
-      let folderAccessible = false;
+      // 1. Buscar todas las carpetas compartidas o accesibles en Google Drive
+      const folderListRes = await this.drive.files.list({
+        q: "mimeType = 'application/vnd.google-apps.folder' and trashed = false",
+        fields: 'files(id, name)',
+        supportsAllDrives: true,
+        includeItemsFromAllDrives: true
+      });
 
-      try {
-        await this.drive.files.get({
-          fileId: targetFolderId,
-          fields: 'id, name',
-          supportsAllDrives: true
-        });
-        folderAccessible = true;
-      } catch (accessErr) {
-        // Si no se encuentra por ID fijo, buscar cualquier carpeta compartida con la cuenta
+      const allFoundFolders = folderListRes.data.files || [];
+      let foldersToSync = allFoundFolders.filter(f => {
+        const lower = f.name.toLowerCase();
+        return lower.includes('health') || lower.includes('sync') || lower.includes('sueño') ||
+               lower.includes('sueno') || lower.includes('frecuencia') || lower.includes('paso') ||
+               lower.includes('oxigeno') || lower.includes('actividad') || lower.includes('peso');
+      });
+
+      // Si además existe rootFolderId específico y no está en la lista, comprobarlo
+      if (this.rootFolderId && !foldersToSync.some(f => f.id === this.rootFolderId)) {
         try {
-          const sharedRes = await this.drive.files.list({
-            q: "mimeType = 'application/vnd.google-apps.folder' and trashed = false",
-            fields: 'files(id, name)',
-            supportsAllDrives: true,
-            includeItemsFromAllDrives: true
+          const rootMeta = await this.drive.files.get({
+            fileId: this.rootFolderId,
+            fields: 'id, name',
+            supportsAllDrives: true
           });
-          const sharedFolders = sharedRes.data.files || [];
-          const healthFolder = sharedFolders.find(f => {
-            const n = f.name.toLowerCase();
-            return n.includes('health') || n.includes('sync') || n.includes('huawei');
-          }) || sharedFolders[0];
-
-          if (healthFolder) {
-            targetFolderId = healthFolder.id;
-            folderAccessible = true;
-            console.log(`[DriveSync] Carpeta compartida detectada automáticamente: "${healthFolder.name}" (${healthFolder.id})`);
+          if (rootMeta.data) {
+            foldersToSync.push(rootMeta.data);
           }
-        } catch (searchErr) {
-          console.warn('[DriveSync] Error buscando carpetas compartidas:', searchErr.message);
-        }
+        } catch (e) {}
       }
 
-      if (!folderAccessible) {
+      if (foldersToSync.length === 0) {
         return {
           success: false,
           syncedCount: 0,
@@ -107,41 +105,40 @@ class DriveSync {
         };
       }
 
-      // 1. Obtener subcarpetas y archivos en la carpeta raíz accesible
-      const listPromise = this.drive.files.list({
-        q: `'${targetFolderId}' in parents and trashed = false`,
-        fields: 'files(id, name, mimeType, modifiedTime, size)',
-        supportsAllDrives: true,
-        includeItemsFromAllDrives: true
-      });
+      console.log(`[DriveSync] Sincronizando ${foldersToSync.length} carpetas de salud:`, foldersToSync.map(f => f.name));
 
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Timeout conectando a Google Drive (8s)')), 8000)
-      );
+      for (let i = 0; i < foldersToSync.length; i++) {
+        const folder = foldersToSync[i];
+        let folderName = folder.name;
+        if (!folderName.startsWith('Health Sync') && this.getTargetSubfolderForFile(folderName)) {
+          folderName = this.getTargetSubfolderForFile(folderName);
+        }
 
-      const res = await Promise.race([listPromise, timeoutPromise]);
-      const items = res.data.files || [];
-
-      const folders = items.filter(it => it.mimeType === 'application/vnd.google-apps.folder');
-      const rootFiles = items.filter(it => it.mimeType !== 'application/vnd.google-apps.folder' && it.name.endsWith('.csv'));
-
-      // Sincronizar archivos dentro de subcarpetas
-      for (const folder of folders) {
-        const localTargetDir = path.join(config.HEALTH_DATA_DIR, folder.name);
+        const localTargetDir = path.join(config.HEALTH_DATA_DIR, folderName);
         if (!fs.existsSync(localTargetDir)) {
           fs.mkdirSync(localTargetDir, { recursive: true });
         }
 
+        // Listar archivos dentro de la carpeta
         const filesRes = await this.drive.files.list({
           q: `'${folder.id}' in parents and trashed = false`,
-          fields: 'files(id, name, modifiedTime, size)',
+          fields: 'files(id, name, mimeType, modifiedTime, size)',
           supportsAllDrives: true,
           includeItemsFromAllDrives: true
         });
 
         const files = filesRes.data.files || [];
         for (const f of files) {
-          const destPath = path.join(localTargetDir, f.name);
+          if (f.mimeType === 'application/vnd.google-apps.folder') {
+            // Si es una subcarpeta dentro de la carpeta principal, agregarla a la cola
+            if (!foldersToSync.some(x => x.id === f.id)) {
+              foldersToSync.push(f);
+            }
+            continue;
+          }
+
+          const safeName = this.sanitizeFileName(f.name);
+          const destPath = path.join(localTargetDir, safeName);
           const remoteSize = parseInt(f.size, 10);
           const remoteTime = f.modifiedTime ? new Date(f.modifiedTime).getTime() : 0;
           let shouldDownload = false;
@@ -153,9 +150,9 @@ class DriveSync {
             if (stat.size === 0) {
               shouldDownload = true;
             } else if (!isNaN(remoteSize) && remoteSize !== stat.size) {
-              shouldDownload = true; // Health Sync agregó nuevas filas
+              shouldDownload = true;
             } else if (remoteTime && remoteTime > stat.mtimeMs + 5000) {
-              shouldDownload = true; // El archivo remoto es más reciente
+              shouldDownload = true;
             }
           }
 
@@ -163,42 +160,10 @@ class DriveSync {
             try {
               await this.downloadFileStream(f.id, destPath);
               syncedCount++;
-              console.log(`[DriveSync] Actualizado: ${folder.name}/${f.name}`);
+              console.log(`[DriveSync] Actualizado: ${folderName}/${safeName} (${f.size} bytes)`);
             } catch (dlErr) {
               console.warn(`[DriveSync] Error descargando ${f.name}:`, dlErr.message);
             }
-          }
-        }
-      }
-
-      // Sincronizar archivos CSV directos en la raíz (si Health Sync no usó subcarpetas)
-      for (const f of rootFiles) {
-        const targetSub = this.getTargetSubfolderForFile(f.name);
-        const localTargetDir = targetSub ? path.join(config.HEALTH_DATA_DIR, targetSub) : config.HEALTH_DATA_DIR;
-        if (!fs.existsSync(localTargetDir)) {
-          fs.mkdirSync(localTargetDir, { recursive: true });
-        }
-
-        const destPath = path.join(localTargetDir, f.name);
-        const remoteSize = parseInt(f.size, 10);
-        let shouldDownload = false;
-
-        if (!fs.existsSync(destPath)) {
-          shouldDownload = true;
-        } else {
-          const stat = fs.statSync(destPath);
-          if (stat.size === 0 || (!isNaN(remoteSize) && remoteSize !== stat.size)) {
-            shouldDownload = true;
-          }
-        }
-
-        if (shouldDownload) {
-          try {
-            await this.downloadFileStream(f.id, destPath);
-            syncedCount++;
-            console.log(`[DriveSync] Actualizado desde raíz: ${f.name} -> ${targetSub || 'health_data'}`);
-          } catch (dlErr) {
-            console.warn(`[DriveSync] Error descargando ${f.name}:`, dlErr.message);
           }
         }
       }
