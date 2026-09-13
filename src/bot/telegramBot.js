@@ -21,6 +21,8 @@ class HealthTelegramBot {
     this.bot = new Telegraf(this.token);
     this.server = null;
     this.isLaunched = false;
+    this.syncInterval = null;
+    this.keepAliveInterval = null;
   }
 
   getMenuKeyboard() {
@@ -30,22 +32,23 @@ class HealthTelegramBot {
         Markup.button.callback('⚡ Batería / Readiness', 'btn_readiness')
       ],
       [
-        Markup.button.callback('❤️ Corazón & RHR', 'btn_corazon'),
-        Markup.button.callback('🚶 Pasos y Actividad', 'btn_pasos')
+        Markup.button.callback('🏃 Monitor Entreno', 'btn_actividad'),
+        Markup.button.callback('❤️ Corazón & RHR', 'btn_corazon')
       ],
       [
-        Markup.button.callback('📊 Fases de Sueño', 'btn_fases'),
-        Markup.button.callback('🎯 Zonas Cardíacas', 'btn_zonas')
+        Markup.button.callback('🚶 Pasos y Actividad', 'btn_pasos'),
+        Markup.button.callback('📊 Fases de Sueño', 'btn_fases')
       ],
       [
-        Markup.button.callback('📅 Resumen Hoy', 'btn_hoy'),
-        Markup.button.callback('📈 Informe Semanal', 'btn_semanal')
+        Markup.button.callback('🎯 Zonas Cardíacas', 'btn_zonas'),
+        Markup.button.callback('📅 Resumen Hoy', 'btn_hoy')
       ],
       [
-        Markup.button.callback('🔄 Sincronizar Drive', 'btn_sync'),
-        Markup.button.callback('💰 Presupuesto & Tokens', 'btn_presupuesto')
+        Markup.button.callback('📈 Informe Semanal', 'btn_semanal'),
+        Markup.button.callback('🔄 Sincronizar Drive', 'btn_sync')
       ],
       [
+        Markup.button.callback('💰 Presupuesto & Tokens', 'btn_presupuesto'),
         Markup.button.callback('❓ Guía de Comandos', 'btn_ayuda')
       ]
     ]);
@@ -55,12 +58,23 @@ class HealthTelegramBot {
     const bot = this.bot;
     const sendTyping = (ctx) => ctx.sendChatAction('typing').catch(() => {});
 
+    // Helper to send messages safely with chunking
+    const sendSafeMessage = async (ctx, text) => {
+      const chunks = formatters.splitMessage(text);
+      for (const chunk of chunks) {
+        await ctx.replyWithMarkdown(chunk).catch(async () => {
+          // Fallback if markdown parsing has rare issues
+          await ctx.reply(chunk);
+        });
+      }
+    };
+
     // START & MENU
     const handleStart = async (ctx) => {
       const text = `👋 *¡Hola! Soy tu Asistente Biométrico y Coach Personal de Salud.*\n\n` +
         `Estoy conectado a los datos de tu smartwatch *Huawei Watch GT* (vía Health Sync).\n` +
         `Analizo tu sueño, frecuencia cardíaca, pasos, oxígeno y entrenamientos con *Gemini 3.8 Flash (Thinking MEDIUM)* ` +
-        `para darte diagnósticos médicos y deportivos comprensibles.\n\n` +
+        `para darte diagnósticos médicos y deportivos comprensibles y profundos.\n\n` +
         `👇 *Selecciona una opción del menú o escribe cualquier comando:*`;
       await ctx.replyWithMarkdown(text, this.getMenuKeyboard());
     };
@@ -78,6 +92,10 @@ class HealthTelegramBot {
         `• /deuda_sueno - Déficit acumulado en 7 días\n` +
         `• /cronotipo - Evaluación de regularidad circadiana\n` +
         `• /apnea_oxigeno - Cruce de despertares con caídas de SpO2\n\n` +
+        `🏃 *Entrenamientos y Deporte:*\n` +
+        `• /actividad o /entrenamiento - Análisis profundo del último entrenamiento con tiempo de recuperación\n` +
+        `• /historial_actividades - Resumen de los últimos entrenamientos\n` +
+        `• /recuperacion_entreno - Cronómetro y estado biológico de recuperación muscular\n\n` +
         `❤️ *Corazón & Estrés:*\n` +
         `• /corazon - Estadísticas y pulso de hoy\n` +
         `• /frecuencia_reposo - Pulso en reposo (RHR) y tendencia 7d\n` +
@@ -86,15 +104,14 @@ class HealthTelegramBot {
         `⚡ *Recuperación & Rendimiento:*\n` +
         `• /readiness o /bateria - Semáforo de energía matutino (0-100)\n` +
         `• /pasos - Pasos, distancia, calorías y hora pico\n` +
-        `• /sedentarismo - Horas continuas de inactividad diurna\n` +
-        `• /actividad - Último entrenamiento registrado\n\n` +
+        `• /sedentarismo - Horas continuas de inactividad diurna\n\n` +
         `📊 *Informes Temporales & Utilidades:*\n` +
         `• /hoy - Tablero de mando integral del día\n` +
         `• /semanal - Informe ejecutivo semanal con metas\n` +
         `• /sync - Sincronizar carpetas de Google Drive\n` +
         `• /presupuesto - Estado de tokens y saldo restante ($5/mes)\n\n` +
         `📎 *Subida Directa:* ¡También puedes enviarme cualquier archivo CSV por este chat y lo analizaré de inmediato!`;
-      await ctx.replyWithMarkdown(text);
+      await sendSafeMessage(ctx, text);
     };
     bot.help(handleHelp);
     bot.command('ayuda', handleHelp);
@@ -124,20 +141,68 @@ class HealthTelegramBot {
         const prompt = prompts.buildSleepPrompt(sleep, prevSleep);
         const aiRes = await geminiCoach.generateAnalysis(prompt);
         const msg = formatters.formatSleepSummary(sleep, aiRes.text);
-        await ctx.replyWithMarkdown(msg);
+        await sendSafeMessage(ctx, msg);
       } catch (err) {
         const msg = formatters.formatSleepSummary(sleep, `(Nota: Análisis local - ${err.message})`);
-        await ctx.replyWithMarkdown(msg);
+        await sendSafeMessage(ctx, msg);
       }
     };
     bot.command('comodormi', handleSleep);
+
+    // ACTIVIDAD / ENTRENAMIENTO
+    const handleWorkout = async (ctx) => {
+      sendTyping(ctx);
+      const workout = workoutEngine.getLatestWorkout();
+      if (!workout) {
+        return ctx.replyWithMarkdown('❌ No se encontraron actividades en la carpeta de Actividades.');
+      }
+      try {
+        const prompt = prompts.buildWorkoutPrompt(workout);
+        const aiRes = await geminiCoach.generateAnalysis(prompt);
+        const msg = formatters.formatWorkoutReport(workout, aiRes.text);
+        await sendSafeMessage(ctx, msg);
+      } catch (err) {
+        const msg = formatters.formatWorkoutReport(workout, `(Diagnóstico base: ${err.message})`);
+        await sendSafeMessage(ctx, msg);
+      }
+    };
+    bot.command('actividad', handleWorkout);
+    bot.command('entrenamiento', handleWorkout);
+
+    // RECUPERACION ENTRENO
+    bot.command('recuperacion_entreno', async (ctx) => {
+      const workout = workoutEngine.getLatestWorkout();
+      if (!workout) return ctx.replyWithMarkdown('❌ No hay entrenamientos registrados.');
+      let t = `🔋 *ESTADO DE RECUPERACIÓN BIOLÓGICA*\n\n` +
+        `• *Última Actividad:* ${workout.type} (${workout.datetime})\n` +
+        `• *Duración:* ${workout.durationMinutes} min | *Pulsaciones Máx:* ${workout.maxHr} bpm\n` +
+        `• *Nivel de Exigencia:* *${workout.intensity}*\n` +
+        `• *Carga de Entrenamiento (EPOC):* ${workout.trainingLoad} pts\n` +
+        `• *Horas de Descanso Recomendadas:* *${workout.recoveryHoursTotal} horas*\n` +
+        `• *Estado Actual:* *${workout.recoveryStatus}*\n\n` +
+        `💡 *Criterio Fisiológico:* Respetar el tiempo de recuperación previene lesiones articulares y optimiza la supercompensación muscular.`;
+      await sendSafeMessage(ctx, t);
+    });
+
+    // HISTORIAL DE ACTIVIDADES
+    bot.command('historial_actividades', async (ctx) => {
+      const history = workoutEngine.getWorkoutHistory(5);
+      if (history.length === 0) return ctx.replyWithMarkdown('❌ Sin historial de actividades.');
+      let t = `🏃 *HISTORIAL DE ENTRENAMIENTOS RECIENTES*\n\n`;
+      history.forEach((w, idx) => {
+        t += `*${idx + 1}. ${w.type}* (${w.datetime})\n`;
+        t += `   ⏱️ ${w.durationMinutes} min | 🔥 ${w.calories} kcal | ❤️ ${w.avgHr} bpm (Pico: ${w.maxHr} bpm)\n`;
+        t += `   ⚡ Intensidad: ${w.intensity} | 🔋 ${w.recoveryHoursTotal}h descanso\n\n`;
+      });
+      await sendSafeMessage(ctx, t);
+    });
 
     // FASES
     bot.command('fases', async (ctx) => {
       const sleep = sleepEngine.getLatestNight();
       if (!sleep) return ctx.replyWithMarkdown('❌ Sin datos de sueño.');
       const msgText = formatters.formatSleepSummary(sleep, '');
-      await ctx.replyWithMarkdown(msgText);
+      await sendSafeMessage(ctx, msgText);
     });
 
     // CICLOS
@@ -148,7 +213,7 @@ class HealthTelegramBot {
         `• *Ciclos completos estimados (~90 min):* *${sleep.cyclesCount} ciclos*\n` +
         `• *Fase final al despertar:* *${sleep.lastStage.toUpperCase()}*\n` +
         `• *Veredicto:* ${sleep.wokenUpInDeep ? '⚠️ Te despertaste en fase profunda, lo que suele causar inercia del sueño (sensación de pesadez matutina).' : '✅ Despertaste en fase ligera/REM, lo que favorece un despertar lúcido y ágil.'}`;
-      await ctx.replyWithMarkdown(t);
+      await sendSafeMessage(ctx, t);
     });
 
     // EFICIENCIA
@@ -160,7 +225,7 @@ class HealthTelegramBot {
         `• *Tiempo real dormido:* ${sleep.totalSleepHours} horas\n` +
         `• *Eficiencia:* *${sleep.efficiencyPct}%* ${formatters.renderProgressBar(sleep.efficiencyPct)}\n` +
         `• *Evaluación Clínica:* ${sleep.efficiencyPct >= 85 ? '🟢 Excelente (óptima higiene de sueño).' : sleep.efficiencyPct >= 75 ? '🟡 Normal/Aceptable.' : '🔴 Baja (pasas mucho tiempo despierto en cama).'}`;
-      await ctx.replyWithMarkdown(t);
+      await sendSafeMessage(ctx, t);
     });
 
     // DEUDA DE SUEÑO
@@ -172,7 +237,7 @@ class HealthTelegramBot {
         `• *Horas dormidas reales:* ${debt.totalActualHours}h\n` +
         `• *Balance / Deuda:* *${debt.totalDebtHours > 0 ? `-${debt.totalDebtHours}h (Déficit)` : `+${Math.abs(debt.totalDebtHours)}h (Superávit)`}*\n\n` +
         `💡 *Consejo:* ${debt.totalDebtHours > 2 ? 'Tienes déficit de sueño acumulado. Añade una siesta de 20-25 minutos o adelanta tu hora de dormir 45 minutos.' : '¡Excelente regularidad! Estás cumpliendo con tus requerimientos de descanso.'}`;
-      await ctx.replyWithMarkdown(t);
+      await sendSafeMessage(ctx, t);
     });
 
     // CRONOTIPO
@@ -182,7 +247,7 @@ class HealthTelegramBot {
         `• *Clasificación estimada:* *${chrono.chronotype}*\n` +
         `• *Muestras analizadas:* ${chrono.sessionsSampled} noches\n\n` +
         `💡 *Interpretación:* Tu reloj biológico muestra una tendencia hacia horarios ${chrono.chronotype.includes('Búho') ? 'vespertinos/noctámbulos. Intenta exponer tu vista a luz solar matutina para fijar la producción de melatonina nocturna.' : 'regulares y matutinos. Mantén esa consistencia.'}`;
-      await ctx.replyWithMarkdown(t);
+      await sendSafeMessage(ctx, t);
     });
 
     // APNEA & OXIGENO
@@ -196,7 +261,7 @@ class HealthTelegramBot {
         `• *Eventos de desaturación (< 95%):* *${corr.desaturationEvents}*\n` +
         `• *Estabilidad respiratoria:* *${corr.breathingStability}*\n\n` +
         `💡 *Veredicto:* ${corr.desaturationEvents === 0 ? 'Oxigenación nocturna impecable. Vías aéreas despejadas y descanso profundo continuo.' : 'Se registraron pequeñas caídas de saturación. Revisa la ventilación del dormitorio o la posición de la almohada.'}`;
-      await ctx.replyWithMarkdown(t);
+      await sendSafeMessage(ctx, t);
     });
 
     // READINESS / BATERIA
@@ -207,10 +272,10 @@ class HealthTelegramBot {
         const prompt = prompts.buildReadinessPrompt(readiness);
         const aiRes = await geminiCoach.generateAnalysis(prompt);
         const msg = formatters.formatReadinessReport(readiness, aiRes.text);
-        await ctx.replyWithMarkdown(msg);
+        await sendSafeMessage(ctx, msg);
       } catch (err) {
         const msg = formatters.formatReadinessReport(readiness, `(Diagnóstico base: ${err.message})`);
-        await ctx.replyWithMarkdown(msg);
+        await sendSafeMessage(ctx, msg);
       }
     };
     bot.command('readiness', handleReadiness);
@@ -227,10 +292,10 @@ class HealthTelegramBot {
         const prompt = prompts.buildHeartPrompt(heart, rhrTrend, spikes);
         const aiRes = await geminiCoach.generateAnalysis(prompt);
         const msg = formatters.formatHeartReport(heart, rhrTrend, aiRes.text);
-        await ctx.replyWithMarkdown(msg);
+        await sendSafeMessage(ctx, msg);
       } catch (err) {
         const msg = formatters.formatHeartReport(heart, rhrTrend, `(Diagnóstico base: ${err.message})`);
-        await ctx.replyWithMarkdown(msg);
+        await sendSafeMessage(ctx, msg);
       }
     };
     bot.command('corazon', handleHeart);
@@ -246,7 +311,7 @@ class HealthTelegramBot {
         t += `• ${x.date}: *${x.rhr} bpm* (media día: ${x.avg} bpm)\n`;
       });
       t += `\n💡 *Regla médica:* Un RHR estable o a la baja indica adaptación física positiva. Si sube > 5 bpm, indica fatiga acumulada, estrés o deshidratación.`;
-      await ctx.replyWithMarkdown(t);
+      await sendSafeMessage(ctx, t);
     });
 
     // ZONAS
@@ -254,7 +319,7 @@ class HealthTelegramBot {
       const heart = heartEngine.getLatestDayStats();
       if (!heart) return ctx.replyWithMarkdown('❌ No hay datos de corazón.');
       const msgText = formatters.formatHeartReport(heart, heartEngine.getRhrTrend(), '');
-      await ctx.replyWithMarkdown(msgText);
+      await sendSafeMessage(ctx, msgText);
     });
 
     // PICOS DE ESTRES
@@ -272,14 +337,14 @@ class HealthTelegramBot {
         });
         t += `\n💡 Posibles causas: estrés agudo, cafeína, digestión pesada o deshidratación.`;
       }
-      await ctx.replyWithMarkdown(t);
+      await sendSafeMessage(ctx, t);
     });
 
     // PASOS
     const handleSteps = async (ctx) => {
       const act = activityEngine.getLatestDayStats();
       const msg = formatters.formatStepsReport(act);
-      await ctx.replyWithMarkdown(msg);
+      await sendSafeMessage(ctx, msg);
     };
     bot.command('pasos', handleSteps);
 
@@ -291,22 +356,7 @@ class HealthTelegramBot {
         `• *Horas sedentarias diurnas (<100 pasos):* *${act.sedentaryDaytimeHours} horas*\n` +
         `• *Racha continua máxima sentado:* *${act.maxSedentaryStreakHours} horas consecutivas*\n\n` +
         `💡 *Recomendación:* Por cada 60 minutos sentado, realiza 2 minutos de caminata o estiramientos para reactivar la circulación y el aclaramiento de glucosa.`;
-      await ctx.replyWithMarkdown(t);
-    });
-
-    // ACTIVIDAD
-    bot.command('actividad', async (ctx) => {
-      const w = workoutEngine.getLatestWorkout();
-      if (!w) return ctx.replyWithMarkdown('❌ No se encontraron sesiones deportivas recientes.');
-      let t = `🏃 *ÚLTIMO ENTRENAMIENTO REGISTRADO*\n\n` +
-        `• *Tipo:* *${w.type}*\n` +
-        `• *Fecha y Hora:* ${w.datetime}\n` +
-        `• *Duración:* *${w.durationMinutes} minutos*\n` +
-        `• *Frecuencia Media:* *${w.avgHr} bpm* | *Pico:* *${w.maxHr} bpm*\n` +
-        `• *Calorías Quemadas:* *${w.calories} kcal*\n` +
-        `• *Nivel de Intensidad:* *${w.intensity}*\n` +
-        `• ⏱️ *Recuperación Recomendada:* *${w.recoveryHours} horas* antes de volver a forzar este grupo muscular.`;
-      await ctx.replyWithMarkdown(t);
+      await sendSafeMessage(ctx, t);
     });
 
     // HOY
@@ -329,7 +379,7 @@ class HealthTelegramBot {
         t += `🚶 *Pasos:* ${act.totalSteps.toLocaleString()} / ${act.targetSteps.toLocaleString()} (${act.distanceKm} km | ${act.activeCalories} kcal)\n`;
       }
       t += `\n🎯 *Veredicto del Coach:* ${readiness.advice}`;
-      await ctx.replyWithMarkdown(t);
+      await sendSafeMessage(ctx, t);
     });
 
     // SEMANAL
@@ -356,7 +406,7 @@ class HealthTelegramBot {
           `• 🛌 *Sueño Promedio:* ${sleepDebt.avgDailySleepHours}h/noche (Deuda: ${sleepDebt.totalDebtHours}h)\n` +
           `• ❤️ *RHR Base:* ${rhrTrend.recent7DaysAvgRhr} bpm\n\n` +
           `🏆 *Diagnóstico Semanal de Gemini:*\n${aiRes.text}`;
-        await ctx.replyWithMarkdown(t);
+        await sendSafeMessage(ctx, t);
       } catch (err) {
         await ctx.replyWithMarkdown(`Error generando reporte semanal: ${err.message}`);
       }
@@ -373,7 +423,7 @@ class HealthTelegramBot {
         `• *Costo total acumulado:* *$${s.totalCostUsd} USD*\n` +
         `• *Presupuesto restante ($5.00/mes):* *$${s.remainingBudgetUsd} USD*\n\n` +
         `🛡️ *Garantía de Presupuesto:* Gracias al motor de compresión local, cada consulta cuesta menos de $0.0005 USD. Tienes saldo para más de 10,000 consultas adicionales este mes.`;
-      await ctx.replyWithMarkdown(t);
+      await sendSafeMessage(ctx, t);
     });
 
     // Manejador de subida directa de archivos CSV
@@ -424,6 +474,8 @@ class HealthTelegramBot {
           await handleHeart(ctx);
         } else if (targetFolder === 'Health Sync Pasos') {
           await handleSteps(ctx);
+        } else if (targetFolder === 'Health Sync Actividades') {
+          await handleWorkout(ctx);
         }
       } catch (err) {
         await ctx.reply(`❌ Error guardando el archivo: ${err.message}`);
@@ -439,6 +491,10 @@ class HealthTelegramBot {
       await ctx.answerCbQuery().catch(() => {});
       await handleReadiness(ctx);
     });
+    bot.action('btn_actividad', async (ctx) => {
+      await ctx.answerCbQuery().catch(() => {});
+      await handleWorkout(ctx);
+    });
     bot.action('btn_corazon', async (ctx) => {
       await ctx.answerCbQuery().catch(() => {});
       await handleHeart(ctx);
@@ -450,12 +506,12 @@ class HealthTelegramBot {
     bot.action('btn_fases', async (ctx) => {
       await ctx.answerCbQuery().catch(() => {});
       const sleep = sleepEngine.getLatestNight();
-      await ctx.replyWithMarkdown(formatters.formatSleepSummary(sleep, ''));
+      await sendSafeMessage(ctx, formatters.formatSleepSummary(sleep, ''));
     });
     bot.action('btn_zonas', async (ctx) => {
       await ctx.answerCbQuery().catch(() => {});
       const heart = heartEngine.getLatestDayStats();
-      await ctx.replyWithMarkdown(formatters.formatHeartReport(heart, heartEngine.getRhrTrend(), ''));
+      await sendSafeMessage(ctx, formatters.formatHeartReport(heart, heartEngine.getRhrTrend(), ''));
     });
     bot.action('btn_hoy', async (ctx) => {
       await ctx.answerCbQuery().catch(() => {});
@@ -491,13 +547,14 @@ class HealthTelegramBot {
         ultimoSueno: sleepEngine.getLatestNight(),
         ultimoPulso: heartEngine.getLatestDayStats(),
         ultimosPasos: activityEngine.getLatestDayStats(),
+        ultimoEntrenamiento: workoutEngine.getLatestWorkout(),
         readiness: readinessEngine.calculateReadiness()
       };
 
       try {
         const prompt = prompts.buildConversationPrompt(text, snapshot);
         const aiRes = await geminiCoach.generateAnalysis(prompt);
-        await ctx.replyWithMarkdown(`💬 *Respuesta de tu Coach:*\n\n${aiRes.text}`);
+        await sendSafeMessage(ctx, `💬 *Respuesta de tu Coach:*\n\n${aiRes.text}`);
       } catch (err) {
         await ctx.replyWithMarkdown(`No pude procesar la consulta: ${err.message}`);
       }
@@ -555,8 +612,6 @@ class HealthTelegramBot {
       }, TEN_MINUTES_MS);
 
       // 🛡️ ANTI-INACTIVIDAD (Keep-Alive): Evita que Render se duerma en el plan gratuito
-      // Render suspende tras 15 min de inactividad HTTP externa.
-      // Hacemos un ping a través de internet a la URL pública cada 9 minutos para mantenerlo despierto 24/7.
       const NINE_MINUTES_MS = 9 * 60 * 1000;
       const externalUrl = process.env.RENDER_EXTERNAL_URL || 'https://huawei-gt6.onrender.com';
       this.keepAliveInterval = setInterval(() => {

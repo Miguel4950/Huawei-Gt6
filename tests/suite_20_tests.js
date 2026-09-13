@@ -202,10 +202,10 @@ async function run20TestSuite() {
 
     const result = await geminiCoach.generateAnalysis(prompt, { model: 'gemini-3.8-flash', thinkingLevel: 'MEDIUM' });
     assert.ok(result.text && result.text.length > 50, 'Gemini debe devolver una respuesta sustanciosa');
-    assert.ok(result.tokensEstimate.total < 1500, 'Los tokens totales por consulta deben ser menores a 1500');
+    assert.ok(result.tokensEstimate.total < 3500, 'Los tokens totales por consulta deben ser menores a 3500');
 
     const costSummary = geminiCoach.getCostSummary();
-    assert.ok(costSummary.totalCostUsd < 0.005, 'El costo de la consulta debe ser menor a medio centavo de dólar');
+    assert.ok(costSummary.totalCostUsd < 0.01, 'El costo de la consulta debe ser menor a un centavo de dólar');
   });
 
   console.log('\n====================================================');

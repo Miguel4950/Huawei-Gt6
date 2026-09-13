@@ -1,32 +1,59 @@
 /**
  * Optimized prompt templates designed for high-density physiological insights
- * while minimizing input and output token consumption (< 600 input, < 400 output).
+ * with generous space for thorough, complete analyses without premature cutoffs.
  */
 
-const SYSTEM_INSTRUCTION = `Eres el Asistente Biométrico y Médico Deportólogo de élite de un atleta que utiliza un smartwatch Huawei con sensores TruSense.
-Tu objetivo es analizar los datos biométricos procesados (sueño, pulso, variabilidad, pasos, oxígeno) y ofrecer diagnósticos claros, empáticos y accionables.
-REGLAS ESTRICTAS:
-1. Responde SIEMPRE en español, con tono motivador, riguroso y profesional.
-2. Sé conciso y directo: usa listas con viñetas, negritas y emojis representativos.
-3. No saludes con párrafos largos. Ve directo al diagnóstico.
-4. Explica siempre el 'por qué' biológico detrás de los números (ej. por qué subió el pulso o por qué la fase REM fue alta).
-5. Termina con 1 o 2 recomendaciones prácticas para el día.`;
+const SYSTEM_INSTRUCTION = `Eres el Asistente Biométrico y Médico Deportólogo de élite de un atleta que utiliza un smartwatch Huawei GT con tecnología biométrica TruSense.
+Tu misión es interpretar con rigor científico, profundidad y calidez los datos fisiológicos (sueño, variabilidad, pulso en reposo, zonas cardíacas, actividades y entrenamientos).
+REGLAS IMPORTANTES:
+1. Responde SIEMPRE en español, con un tono motivador, profesional y exhaustivo.
+2. Desarrolla las respuestas de forma COMPLETA: no dejes secciones incompletas ni a medias. Explica el contexto biológico detrás de cada cifra.
+3. Utiliza formato Markdown limpio con negritas, listas ordenadas y emojis claros.
+4. Analiza siempre los 'por qué': por ejemplo, qué relación hay entre el esfuerzo físico, la temperatura, el pulso en reposo y las fases de sueño.
+5. Termina SIEMPRE con recomendaciones prácticas y accionables para el atleta.`;
 
 function buildSleepPrompt(sleepData, prevSleepData) {
-  return `Analiza la última noche de sueño con los siguientes datos precalculados:
-- Noche analizada: ${sleepData.date} (${sleepData.startTime} a ${sleepData.endTime})
-- Tiempo total en cama: ${sleepData.inBedHours}h | Tiempo real dormido: ${sleepData.totalSleepHours}h
-- Eficiencia del sueño: ${sleepData.efficiencyPct}%
-- Fases: Profundo: ${sleepData.deepPct}% (${(sleepData.deepSeconds/60).toFixed(0)} min) | REM: ${sleepData.remPct}% (${(sleepData.remSeconds/60).toFixed(0)} min) | Ligero: ${sleepData.lightPct}% | Despierto: ${sleepData.awakePct}% (${(sleepData.awakeSeconds/60).toFixed(0)} min, ${sleepData.awakeCount} despertares)
-- Ciclos ultradianos completos (~90m): ${sleepData.cyclesCount}
-- Despertó en fase profunda: ${sleepData.wokenUpInDeep ? 'SÍ (puede causar inercia/aturdimiento)' : 'NO'}
-${prevSleepData ? `- Noche anterior de referencia: ${prevSleepData.date} (${prevSleepData.totalSleepHours}h dormido, REM: ${prevSleepData.remPct}%, Profundo: ${prevSleepData.deepPct}%)` : ''}
+  return `Realiza un análisis completo y detallado de la última noche de sueño con estos datos biométricos exactos:
+- Fecha de la noche: ${sleepData.date}
+- Horario en cama: ${sleepData.startTime} ➔ ${sleepData.endTime} (Total en cama: ${sleepData.inBedHours} horas)
+- Tiempo real dormido: ${sleepData.totalSleepHours} horas
+- Eficiencia del sueño: ${sleepData.efficiencyPct}% (Puntuación de sueño: ${sleepData.sleepScore}/100)
+- Fases del sueño:
+  • Fase REM: ${sleepData.remPct}% (${(sleepData.remSeconds / 60).toFixed(0)} min) [Ideal: 20-25%]
+  • Sueño Profundo: ${sleepData.deepPct}% (${(sleepData.deepSeconds / 60).toFixed(0)} min) [Ideal: 15-20%]
+  • Sueño Ligero: ${sleepData.lightPct}% (${(sleepData.lightSeconds / 60).toFixed(0)} min)
+  • Tiempo Despierto: ${sleepData.awakePct}% (${(sleepData.awakeSeconds / 60).toFixed(0)} min en ${sleepData.awakeCount} microdespertares)
+- Ciclos ultradianos (~90 min): ${sleepData.cyclesCount} ciclos completados
+- Estado al despertar: Despertó en fase ${sleepData.lastStage.toUpperCase()} (${sleepData.wokenUpInDeep ? 'Fase profunda - Riesgo de inercia del sueño' : 'Fase ligera/REM - Despertar óptimo'})
+${prevSleepData ? `- Noche anterior comparativa (${prevSleepData.date}): Durmió ${prevSleepData.totalSleepHours}h (REM: ${prevSleepData.remPct}%, Profundo: ${prevSleepData.deepPct}%, Eficiencia: ${prevSleepData.efficiencyPct}%)` : ''}
 
-Entrega:
-1. Calificación y veredicto general (🟢/🟡/🔴).
-2. Interpretación de la calidad de fases (REM y Profundo).
-3. Comparación rápida contra la noche anterior.
-4. Recomendación del día para optimizar la noche siguiente.`;
+Estructura tu diagnóstico de forma completa:
+1. 🏆 **Veredicto Clínico General:** Calificación de 1 a 100 con justificación.
+2. 🧠 **Análisis de Recuperación Mental (Fase REM) y Física (Sueño Profundo):** Qué beneficios celulares y cognitivos obtuvo el atleta con estos porcentajes.
+3. 🔄 **Evaluación de Ciclos e Higiene Circadiana:** Regularidad del horario, latencia y si el despertar fue limpio.
+4. 📈 **Comparativa vs Noche Anterior:** Progresos o cambios notables.
+5. 🎯 **2 Consejos Accionables:** Recomendaciones precisas para el día de hoy.`;
+}
+
+function buildWorkoutPrompt(workoutData) {
+  return `Realiza un análisis profundo del último entrenamiento registrado por el smartwatch:
+- Tipo de actividad / Deporte: ${workoutData.type}
+- Fecha y hora: ${workoutData.datetime}
+- Duración activa: ${workoutData.durationMinutes} minutos (${workoutData.activeSeconds} seg)
+- Gasto calórico: ${workoutData.calories} kcal
+- Distancia recorrida: ${workoutData.distanceKm} km
+- Frecuencia cardíaca media: ${workoutData.avgHr} bpm
+- Frecuencia cardíaca máxima (Pico): ${workoutData.maxHr} bpm
+- Nivel de intensidad calculado: ${workoutData.intensity}
+- Carga de entrenamiento estimada (EPOC): ${workoutData.trainingLoad} puntos
+- Tiempo total de recuperación sugerido: ${workoutData.recoveryHoursTotal} horas
+- Estado actual de recuperación: ${workoutData.recoveryStatus} (${workoutData.hoursRemaining}h restantes)
+
+Estructura tu análisis:
+1. 💥 **Evaluación del Rendimiento Cardiovascular:** Análisis del pulso medio vs pico máximo y zonas alcanzadas.
+2. 🔋 **Carga Fisiológica y Desgaste Metabólico:** Impacto en el sistema neuromuscular y consumo calórico.
+3. ⏱️ **Cronograma de Recuperación Biológica:** Cuántas horas necesita el cuerpo para supercompensar y cuándo conviene volver a entrenar fuerte.
+4. 🥗 **Estrategia Nutricional y de Hidratación:** Qué reponer hoy para acelerar la regeneración muscular.`;
 }
 
 function buildReadinessPrompt(readinessData) {
@@ -78,6 +105,7 @@ Responde a su duda de forma precisa, basándote en sus números reales.`;
 module.exports = {
   SYSTEM_INSTRUCTION,
   buildSleepPrompt,
+  buildWorkoutPrompt,
   buildReadinessPrompt,
   buildHeartPrompt,
   buildWeeklyPrompt,

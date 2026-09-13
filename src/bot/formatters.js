@@ -35,6 +35,32 @@ function formatSleepSummary(sleep, aiText = '') {
   return msg;
 }
 
+function formatWorkoutReport(workout, aiText = '') {
+  if (!workout) return '❌ No hay sesiones de entrenamiento registradas en la carpeta de Actividades.';
+
+  let msg = `🏃 *MONITOR DE ENTRENAMIENTO & ACTIVIDAD FÍSICA*\n\n`;
+  msg += `🏷️ *Deporte / Actividad:* *${workout.type}*\n`;
+  msg += `📅 *Fecha:* ${workout.datetime}\n`;
+  msg += `⏱️ *Duración Activa:* *${workout.durationMinutes} minutos*\n`;
+  msg += `🔥 *Calorías Quemadas:* *${workout.calories} kcal*\n`;
+  if (workout.distanceKm > 0) {
+    msg += `📏 *Distancia:* *${workout.distanceKm} km*\n`;
+  }
+  msg += `❤️ *Frecuencia Media:* *${workout.avgHr} bpm* | *Pico Máximo:* *${workout.maxHr} bpm*\n`;
+  msg += `⚡ *Nivel de Intensidad:* *${workout.intensity}*\n`;
+  msg += `📈 *Carga de Entrenamiento (EPOC):* *${workout.trainingLoad} pts*\n\n`;
+
+  msg += `🔋 *ESTADO DE RECUPERACIÓN BIOLÓGICA:*\n`;
+  msg += `• *Tiempo Total de Descanso Necesario:* *${workout.recoveryHoursTotal} horas*\n`;
+  msg += `• *Estado Actual:* *${workout.recoveryStatus}*\n\n`;
+
+  if (aiText) {
+    msg += `🩺 *Evaluación del Entrenador (Gemini 3.8 Flash):*\n${aiText}\n`;
+  }
+
+  return msg;
+}
+
 function formatReadinessReport(readiness, aiText = '') {
   let msg = `⚡ *NIVEL DE BATERÍA CORPORAL Y RECUPERACIÓN*\n\n`;
   msg += `🏆 *Score de Recuperación:* *${readiness.score}/100* ${readiness.color} (*${readiness.level}*)\n\n`;
@@ -92,10 +118,35 @@ function formatStepsReport(activity) {
   return msg;
 }
 
+/**
+ * Splits text into safe chunks for Telegram's 4096 character limit
+ */
+function splitMessage(text, maxLength = 3900) {
+  if (!text || text.length <= maxLength) return [text];
+  const chunks = [];
+  let current = '';
+
+  const paragraphs = text.split('\n\n');
+  for (const para of paragraphs) {
+    if ((current + '\n\n' + para).length > maxLength) {
+      if (current.length > 0) chunks.push(current.trim());
+      current = para;
+    } else {
+      current = current ? current + '\n\n' + para : para;
+    }
+  }
+  if (current.trim().length > 0) {
+    chunks.push(current.trim());
+  }
+  return chunks;
+}
+
 module.exports = {
   renderProgressBar,
   formatSleepSummary,
+  formatWorkoutReport,
   formatReadinessReport,
   formatHeartReport,
-  formatStepsReport
+  formatStepsReport,
+  splitMessage
 };

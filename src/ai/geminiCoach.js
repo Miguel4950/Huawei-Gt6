@@ -37,8 +37,8 @@ class GeminiCoach {
         contents: userPrompt,
         config: {
           systemInstruction: prompts.SYSTEM_INSTRUCTION,
-          maxOutputTokens: 900,
-          temperature: 0.4,
+          maxOutputTokens: 3000,
+          temperature: 0.5,
           thinkingConfig: {
             thinkingLevel: thinkingLevel
           }
