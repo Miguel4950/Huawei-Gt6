@@ -187,7 +187,7 @@ class HealthTelegramBot {
         `• /historial_actividades — Resumen de tus últimas actividades registradas\n\n` +
         `🧠 *3. Corazón, Sistema Autónomo & Longevidad:*\n` +
         `• /sistema_autonomo (o /estres_cardiaco) — Tono vagal, estrés y descenso nocturno (dip %)\n` +
-        `• /edad_biologica (o /longevidad) — Edad biológica vs cronológica (referencia: 21 años)\n` +
+        `• /edad_biologica (o /longevidad) — Edad biológica vs cronológica (referencia: 20 años)\n` +
         `• /corazon — Frecuencia cardíaca media, mínima y pico del día\n` +
         `• /frecuencia_reposo — Pulso en reposo (RHR) y tendencia de 7 días\n` +
         `• /zonas — Distribución del tiempo en Zonas Karvonen Z1 a Z5\n` +
@@ -678,7 +678,7 @@ class HealthTelegramBot {
         `• *Nombre:* *${config.USER_PROFILE.name}*\n` +
         `• *Edad Cronológica Real:* *${config.USER_PROFILE.age} años* (Año: ${config.USER_PROFILE.birthYear})\n` +
         `• *Enfoque:* Persona normal con rutina sedentaria buscando salud preventiva, romper el sedentarismo y optimizar descanso.\n\n` +
-        `💡 *Para ajustar tu edad:* escribe \`/edad [tus años]\` (ej: \`/edad 21\` o \`/edad 22\`).`;
+        `💡 *Para ajustar tu edad:* escribe \`/edad [tus años]\` (ej: \`/edad 20\` o \`/edad 21\`).`;
       await sendSafeMessage(ctx, t);
     });
 

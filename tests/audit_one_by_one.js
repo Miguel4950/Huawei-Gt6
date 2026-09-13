@@ -167,10 +167,19 @@ async function testAudits() {
   // 25. /semanal
   console.log('\n--- COMANDO 25: /semanal ---');
   const stepSum = activityEngine.getWeeklySummary();
-  console.log(`Pasos semanales: ${stepSum.totalSteps} (Media: ${stepSum.avgDailySteps}/día)`);
+  // 26. /edad
+  console.log('\n--- COMANDO 26: /edad ---');
+  const config = require('../src/config/config');
+  console.log(`Usuario: ${config.USER_PROFILE.name}, Edad: ${config.USER_PROFILE.age} años (Nacido: ${config.USER_PROFILE.birthYear})`);
+
+  // 27. /menu y 28. /lista
+  console.log('\n--- COMANDOS 27 & 28: /menu y /lista ---');
+  const HealthTelegramBot = require('../src/bot/telegramBot');
+  const testBot = new HealthTelegramBot('dummy_token');
+  console.log('Teclado persistente verificado:', JSON.stringify(testBot.getPersistentKeyboard().reply_markup.keyboard));
 
   console.log('\n====================================================');
-  console.log('✅ AUDITORÍA DE 25 COMANDOS COMPLETADA CON ÉXITO');
+  console.log('✅ AUDITORÍA DE TODOS LOS COMANDOS COMPLETADA CON ÉXITO');
   console.log('====================================================');
 }
 

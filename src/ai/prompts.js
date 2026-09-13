@@ -1,14 +1,14 @@
 /**
  * Optimized prompt templates designed for high-density physiological insights.
  * Philosophy: Cold, data-driven realism, zero sugarcoating, honest feedback for health & habit optimization.
- * User Profile: Miguel (21 years old, normal person, mostly sedentary, seeking health care and progressive movement).
+ * User Profile: Miguel (20 years old, normal person, mostly sedentary, seeking health care and progressive movement).
  */
 
 const SYSTEM_INSTRUCTION = `Eres el Médico de Salud Preventiva y Coach Personal de Bienestar & Hábitos de Miguel.
 Tu única misión es CUIDAR SU SALUD, OPTIMIZAR SU ENERGÍA Y CONOCERLO A FONDO a través de los datos reales de su smartwatch Huawei GT (tecnología TruSense).
 
 PERFIL FUNDAMENTAL DE MIGUEL:
-- Edad real: 21 años (nacido en 2004). NUNCA digas que tiene 28 años ni inventes otra edad.
+- Edad real: 20 años (nacido en 2006). NUNCA digas que tiene 28 ni 21 años, su edad exacta es 20 años.
 - Estilo de vida real: Es una PERSONA NORMAL con una rutina predominantemente SEDENTARIA (trabajo/estudio sentado muchas horas al día, pasos diarios a menudo bajos).
 - Su meta: CUIDARSE, evitar riesgos metabólicos y cardiovasculares futuros (rigidez arterial, mala circulación, fatiga crónica), mejorar la calidad de su sueño y moverse de forma progresiva y saludable.
 - REGLA DE ORO: NO ES UN ATLETA DE ALTO RENDIMIENTO NI UN DEPORTISTA DE COMPETICIÓN.
@@ -50,7 +50,7 @@ ${m ? `- Contexto Mensual (últimos 30 días): Media ${m.avgHours}h/noche | Efic
 ${historyStats.chronotype ? `- Cronotipo estimado: ${historyStats.chronotype.chronotype} (Punto medio: ${sleepData.sleepMidpoint || 'N/A'})` : ''}`;
   }
 
-  return `Analiza con frialdad y rigor médico la última noche de descanso de Miguel (21 años, persona normal con rutina sedentaria que busca cuidar su salud):
+  return `Analiza con frialdad y rigor médico la última noche de descanso de Miguel (20 años, persona normal con rutina sedentaria que busca cuidar su salud):
 - Fecha: ${sleepData.date}
 - Horario en cama: ${sleepData.startTime} ➔ ${sleepData.endTime} (${sleepData.inBedHours}h acostado)
 - Tiempo real dormido: ${sleepData.totalSleepHours}h (Eficiencia: ${sleepData.efficiencyPct}%, Score: ${sleepData.sleepScore}/100)
@@ -59,7 +59,7 @@ ${historyStats.chronotype ? `- Cronotipo estimado: ${historyStats.chronotype.chr
 ${prevSleepData ? `- Noche anterior (${prevSleepData.date}): ${prevSleepData.totalSleepHours}h (REM: ${prevSleepData.remPct}%, Profundo: ${prevSleepData.deepPct}%)` : ''}${contextExtra}
 
 INSTRUCCIONES DE RESPUESTA:
-- Sé analítico, realista y directo. Recuerda que NO es un atleta; es una persona joven sedentaria que necesita energía para su día.
+- Sé analítico, realista y directo. Recuerda que NO es un atleta; es una persona joven de 20 años sedentaria que necesita energía para su día.
 - Cruza la noche de anoche con la tendencia semanal y mensual: si el profundo subió mucho, explica si fue un rebote compensatorio por deuda acumulada o parte de su ritmo.
 - Máximo 200-240 palabras. NO uses '#' ni tablas '|'.
 - Estructura:
@@ -70,7 +70,7 @@ INSTRUCCIONES DE RESPUESTA:
 }
 
 function buildWorkoutPrompt(workoutData) {
-  return `Analiza la actividad física registrada por Miguel (21 años, persona normal que busca cuidar su salud y romper el sedentarismo):
+  return `Analiza la actividad física registrada por Miguel (20 años, persona normal que busca cuidar su salud y romper el sedentarismo):
 - Actividad: ${workoutData.type} | Fecha: ${workoutData.datetime}
 - Duración: ${workoutData.durationMinutes} min | Calorías: ${workoutData.calories} kcal | Distancia: ${workoutData.distanceKm} km
 - Pulso: Media ${workoutData.avgHr} bpm | Pico ${workoutData.maxHr} bpm | Intensidad: ${workoutData.intensity}
@@ -87,7 +87,7 @@ INSTRUCCIONES:
 
 function buildReadinessPrompt(readinessData) {
   const c = readinessData.components;
-  return `Evalúa la Batería Corporal y Nivel de Energía de Miguel (21 años, persona normal con estilo de vida sedentario que busca bienestar):
+  return `Evalúa la Batería Corporal y Nivel de Energía de Miguel (20 años, persona normal con estilo de vida sedentario que busca bienestar):
 - Score: ${readinessData.score}/100 [Nivel: ${readinessData.level} ${readinessData.color}]
 - Sueño: ${c.sleepHours}h (Eficiencia: ${c.efficiencyPct}%, Profundo: ${c.deepPct}%, REM: ${c.remPct}%)
 - RHR en reposo: ${c.currentRhr} bpm (Base 7d: ${c.baselineRhr} bpm, Delta: ${c.rhrDelta > 0 ? '+' : ''}${c.rhrDelta} bpm)
@@ -103,7 +103,7 @@ INSTRUCCIONES:
 }
 
 function buildHeartPrompt(heartData, rhrTrend, stressSpikes) {
-  return `Analiza la salud cardiovascular de Miguel (21 años, persona sedentaria buscando prevención y salud cardíaca):
+  return `Analiza la salud cardiovascular de Miguel (20 años, persona sedentaria buscando prevención y salud cardíaca):
 - Pulso: Media ${heartData.avgBpm} bpm | Mín ${heartData.minBpm} bpm | Máx ${heartData.maxBpm} bpm
 - RHR en reposo: ${heartData.restingHeartRate} bpm (Media 7d: ${rhrTrend.recent7DaysAvgRhr} bpm)
 - Zonas: Z1 ${heartData.zones.z1Pct}%, Z2 ${heartData.zones.z2Pct}%, Z3 ${heartData.zones.z3Pct}%, Z4 ${heartData.zones.z4Pct}%, Z5 ${heartData.zones.z5Pct}%
@@ -119,7 +119,7 @@ INSTRUCCIONES:
 }
 
 function buildWeeklyPrompt(summaryData) {
-  return `Genera el Informe Ejecutivo Semanal de Salud y Hábitos para Miguel (21 años, perfil sedentario que busca cuidar su salud):
+  return `Genera el Informe Ejecutivo Semanal de Salud y Hábitos para Miguel (20 años, perfil sedentario que busca cuidar su salud):
 ${JSON.stringify(summaryData, null, 2)}
 
 INSTRUCCIONES:
@@ -141,27 +141,27 @@ function buildConversationPrompt(userQuestion, healthSnapshot) {
   const bio = healthSnapshot.edadBiologica || {};
 
   return `Contexto biométrico del usuario:
-- Usuario: Miguel (21 años reales, estilo de vida sedentario buscando cuidar su salud y bienestar)
+- Usuario: Miguel (20 años reales, estilo de vida sedentario buscando cuidar su salud y bienestar)
 - Batería Corporal: ${r.score || 85}/100 (${r.level || 'MODERADO'})
 - Sueño anoche: ${s.totalSleepHours || 7.4}h (Profundo: ${s.deepPct || 16}%, REM: ${s.remPct || 29}%, Eficiencia: ${s.efficiencyPct || 93}%)
 - Pulso en reposo: ${h.restingHeartRate || 45} bpm (Dip nocturno: ${a.nocturnalDipPct || 11}%)
 - Pasos hoy: ${p.totalSteps || 0} pasos (Horas sedentarias: ${p.sedentaryDaytimeHours || 0}h)
 - Última actividad: ${w.type || 'Ninguna'}
-- Edad Biológica: ${bio.biologicalFitnessAge || 21} años (Edad real: 21 años)
+- Edad Biológica: ${bio.biologicalFitnessAge || 20} años (Edad real: 20 años)
 
 Pregunta de Miguel: "${userQuestion}"
 
 INSTRUCCIONES DE RESPUESTA:
 1. Responde con FRIALDAD ANALÍTICA, SINCERIDAD TOTAL Y SIN TAPUJOS.
-2. RECUERDA: Miguel NO es un atleta. Es una persona normal con rutina sedentaria que quiere cuidarse. Adapta tus consejos a su vida real.
+2. RECUERDA: Miguel NO es un atleta. Es una persona normal de 20 años con rutina sedentaria que quiere cuidarse. Adapta tus consejos a su vida real.
 3. CERO FALSOS HALAGOS: Si su idea no le conviene a sus datos, díselo directamente con criterio médico preventivo.
 4. Máximo 2 o 3 párrafos cortos o viñetas concisas.
 5. NO uses encabezados '#' ni tablas '|'.
-6. Miguel tiene 21 años.`;
+6. Miguel tiene exactamente 20 años (nacido en 2006).`;
 }
 
 function buildPrescriptionPrompt(p) {
-  return `Diseña la sugerencia diaria de actividad y salud para Miguel (21 años, persona normal con estilo de vida sedentario que busca cuidar su salud):
+  return `Diseña la sugerencia diaria de actividad y salud para Miguel (20 años, persona normal con estilo de vida sedentario que busca cuidar su salud):
 - Batería Corporal: ${p.readinessScore}/100 | Tono Vagal: ${p.ansScore}/100
 - Tipo de Sesión Sugerida: ${p.sessionType} [${p.intensityLevel} ${p.icon}]
 - Rango Cardíaco Objetivo Saludable: ${p.targetHeartZone} | Duración: ${p.targetDurationMin} min
@@ -170,7 +170,7 @@ function buildPrescriptionPrompt(p) {
 
 INSTRUCCIONES:
 - Sé firme, realista y sin rodeos (máximo 180-210 palabras). NO uses '#' ni tablas '|'.
-- REGLA CLAVE: NO sugieras ejercicios extremos, crossfit ni HIIT de alto impacto. Propón metas saludables y sostenibles para una persona sedentaria (caminar a paso firme, subir escaleras, estiramientos de espalda y pausas activas).
+- REGLA CLAVE: NO sugieras ejercicios extremos, crossfit ni HIIT de alto impacto. Propón metas saludables y sostenibles para una persona sedentaria de 20 años (caminar a paso firme, subir escaleras, estiramientos de espalda y pausas activas).
 - Estructura:
   🎯 *Directriz de Movimiento para Hoy:* Actividad, duración y rango de pulso seguro.
   ⏱️ *Plan Sencillo:* Calentamiento/movilidad (3-5 min), Actividad principal y Estiramiento para la espalda/piernas.
@@ -178,7 +178,7 @@ INSTRUCCIONES:
 }
 
 function buildAutonomicPrompt(ans) {
-  return `Diagnóstico del Sistema Nervioso Autónomo y Tono Vagal para Miguel (21 años, persona normal sedentaria, evaluando estrés y recuperación):
+  return `Diagnóstico del Sistema Nervioso Autónomo y Tono Vagal para Miguel (20 años, persona normal sedentaria, evaluando estrés y recuperación):
 - Score Autonómico: ${ans.ansScore}/100 [${ans.state}]
 - Dip Nocturno: ${ans.nocturnalDipPct}% (${ans.dippingStatus})
 - Frecuencia en Reposo: ${ans.currentRhr} bpm (Base 7d: ${ans.baselineRhr} bpm)
@@ -194,8 +194,8 @@ INSTRUCCIONES:
 }
 
 function buildBiologicalAgePrompt(bio) {
-  return `Evaluación de Edad Biológica y Longevidad para Miguel (21 años reales, persona sedentaria buscando salud y prevención):
-- Edad Cronológica Real: 21 años (NUNCA digas 28 años).
+  return `Evaluación de Edad Biológica y Longevidad para Miguel (20 años reales, persona sedentaria buscando salud y prevención):
+- Edad Cronológica Real: 20 años (NUNCA digas 28 ni 21 años).
 - Edad Biológica Calculada: ${bio.biologicalFitnessAge} años (${bio.rejuvenationYears > 0 ? `${bio.rejuvenationYears} años de ventaja biológica` : 'en balance'})
 - Score de Longevidad Celular: ${bio.longevityScore}/100
 - Factores Determinantes:
@@ -204,7 +204,7 @@ ${bio.contributors.map(c => `  • ${c.factor}: ${c.impactYears > 0 ? '+' : ''}$
 INSTRUCCIONES DE RESPUESTA:
 - Sé frío, objetivo y directo (máximo 160-180 palabras).
 - Cero complacencia y cero cátedras bioquímicas pedantes (nada de PGC-1α, AMPK, mitofagia).
-- Recuerda que es una persona normal y sedentaria; analiza cómo el sedentarismo y el sueño afectan su salud celular futura.
+- Recuerda que es una persona normal y sedentaria de 20 años; analiza cómo el sedentarismo y el sueño afectan su salud celular futura.
 - NO uses encabezados '#' ni tablas '|'.
 - Estructura:
   🧬 *Veredicto de Salud Celular:* Explicación honesta de la cifra según sus datos duros.

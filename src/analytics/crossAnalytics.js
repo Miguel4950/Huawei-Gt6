@@ -290,8 +290,8 @@ class CrossAnalytics {
     const sleep = sleepEngine.getLatestNight();
     const oxy = oxygenEngine.getLatestDayStats();
 
-    // Baseline reference: Dynamic user age from profile (default 21 years)
-    const CHRONO_AGE_REF = (config.USER_PROFILE && config.USER_PROFILE.age) || 21;
+    // Baseline reference: Dynamic user age from profile (default 20 years)
+    const CHRONO_AGE_REF = (config.USER_PROFILE && config.USER_PROFILE.age) || 20;
     let delta = 0;
     const contributors = [];
 
