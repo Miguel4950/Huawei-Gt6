@@ -16,7 +16,16 @@ function formatSleepSummary(sleep, aiText = '') {
   const remBar = renderProgressBar(sleep.remPct);
   const lightBar = renderProgressBar(sleep.lightPct);
 
-  let msg = `🌙 *REPORTE DE SUEÑO — Noche del ${sleep.date}*\n\n`;
+  let dateNotice = '';
+  try {
+    const endTimestamp = new Date(sleep.endTime.replace(/\./g, '-')).getTime();
+    const diffHours = (Date.now() - endTimestamp) / (1000 * 60 * 60);
+    if (diffHours > 18) {
+      dateNotice = `⚠️ _Aviso: Datos del ${sleep.date} (hace ~${Math.round(diffHours)}h). Si ya despertaste hoy, abre Huawei Health y Health Sync en tu móvil para sincronizar, o escribe /sync._\n\n`;
+    }
+  } catch (e) {}
+
+  let msg = `🌙 *REPORTE DE SUEÑO — Noche del ${sleep.date}*\n\n${dateNotice}`;
   msg += `⏱️ *Tiempo en cama:* ${sleep.inBedHours}h (${sleep.startTime.split(' ')[1]} ➔ ${sleep.endTime.split(' ')[1]})\n`;
   msg += `💤 *Tiempo real dormido:* *${sleep.totalSleepHours}h*\n`;
   msg += `📊 *Eficiencia del sueño:* *${sleep.efficiencyPct}%* (Score: *${sleep.sleepScore}/100*)\n`;

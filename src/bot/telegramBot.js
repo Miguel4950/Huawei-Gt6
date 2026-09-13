@@ -186,12 +186,31 @@ class HealthTelegramBot {
 
     // COMODORMI
     const handleSleep = async (ctx) => {
-      const sleep = sleepEngine.getLatestNight();
-      const prevSleep = sleepEngine.getPreviousNight();
+      let sleep = sleepEngine.getLatestNight();
+      let prevSleep = sleepEngine.getPreviousNight();
+
+      // Si los datos tienen más de 18 horas de antigüedad, intentamos un sync rápido de Drive primero
+      if (sleep) {
+        try {
+          const endTs = new Date(sleep.endTime.replace(/\./g, '-')).getTime();
+          const diffHours = (Date.now() - endTs) / (1000 * 60 * 60);
+          if (diffHours > 18) {
+            console.log(`[handleSleep] Registro anterior a 18h (${sleep.date}). Intentando sync de Drive...`);
+            const syncRes = await driveSync.syncAll();
+            if (syncRes.success && syncRes.syncedCount > 0) {
+              sleep = sleepEngine.getLatestNight();
+              prevSleep = sleepEngine.getPreviousNight();
+            }
+          }
+        } catch (syncErr) {
+          console.warn('[handleSleep] Sync previo falló:', syncErr.message);
+        }
+      }
+
       if (!sleep) {
         return ctx.replyWithMarkdown('❌ No se encontraron registros de sueño en la carpeta. Usa /sync o envía un CSV.');
       }
-      await executeWithAiFeedback(ctx, 'Analizando tu sueño de anoche...', async () => {
+      await executeWithAiFeedback(ctx, 'Analizando tu sueño...', async () => {
         try {
           const prompt = prompts.buildSleepPrompt(sleep, prevSleep);
           const aiRes = await geminiCoach.generateAnalysis(prompt);

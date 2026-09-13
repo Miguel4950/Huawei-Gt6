@@ -31,38 +31,66 @@ class DriveSync {
     }
   }
 
+  async downloadFileStream(fileId, destPath) {
+    const fileStream = fs.createWriteStream(destPath);
+    const downloadRes = await this.drive.files.get(
+      { fileId, alt: 'media', supportsAllDrives: true },
+      { responseType: 'stream' }
+    );
+    return new Promise((resolve, reject) => {
+      downloadRes.data
+        .pipe(fileStream)
+        .on('finish', resolve)
+        .on('error', reject);
+    });
+  }
+
+  getTargetSubfolderForFile(fileName) {
+    const lower = fileName.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    if (lower.includes('sueno')) return 'Health Sync Sueño';
+    if (lower.includes('frecuencia') || lower.includes('cardiaca')) return 'Health Sync Frecuencia cardíaca';
+    if (lower.includes('paso')) return 'Health Sync Pasos';
+    if (lower.includes('actividad') || lower.includes('ejercicio')) return 'Health Sync Actividades';
+    if (lower.includes('oxigeno') || lower.includes('saturacion')) return 'Health Sync Saturación de oxígeno';
+    if (lower.includes('peso')) return 'Health Sync Peso';
+    return null;
+  }
+
   async syncAll() {
     if (!this.init()) {
-      return { success: false, syncedCount: 0, message: 'Credenciales de Google Drive no disponibles.' };
+      return { success: false, syncedCount: 0, message: 'Credenciales de Google Drive no disponibles en el servidor.' };
     }
 
     let syncedCount = 0;
     try {
-      // Find subfolders in Root Folder with a timeout
-      const folderListPromise = this.drive.files.list({
-        q: `'${this.rootFolderId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
-        fields: 'files(id, name)',
+      // 1. Obtener subcarpetas y archivos en la carpeta raíz
+      const listPromise = this.drive.files.list({
+        q: `'${this.rootFolderId}' in parents and trashed = false`,
+        fields: 'files(id, name, mimeType, modifiedTime, size)',
         supportsAllDrives: true,
         includeItemsFromAllDrives: true
       });
 
       const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Timeout conectando a Google Drive (5s)')), 5000)
+        setTimeout(() => reject(new Error('Timeout conectando a Google Drive (8s)')), 8000)
       );
 
-      const res = await Promise.race([folderListPromise, timeoutPromise]);
-      const folders = res.data.files || [];
+      const res = await Promise.race([listPromise, timeoutPromise]);
+      const items = res.data.files || [];
 
+      const folders = items.filter(it => it.mimeType === 'application/vnd.google-apps.folder');
+      const rootFiles = items.filter(it => it.mimeType !== 'application/vnd.google-apps.folder' && it.name.endsWith('.csv'));
+
+      // Sincronizar archivos dentro de subcarpetas
       for (const folder of folders) {
         const localTargetDir = path.join(config.HEALTH_DATA_DIR, folder.name);
         if (!fs.existsSync(localTargetDir)) {
           fs.mkdirSync(localTargetDir, { recursive: true });
         }
 
-        // List files in subfolder
         const filesRes = await this.drive.files.list({
           q: `'${folder.id}' in parents and trashed = false`,
-          fields: 'files(id, name, modifiedTime)',
+          fields: 'files(id, name, modifiedTime, size)',
           supportsAllDrives: true,
           includeItemsFromAllDrives: true
         });
@@ -70,22 +98,28 @@ class DriveSync {
         const files = filesRes.data.files || [];
         for (const f of files) {
           const destPath = path.join(localTargetDir, f.name);
-          // Only download if doesn't exist or size is 0
-          if (!fs.existsSync(destPath) || fs.statSync(destPath).size === 0) {
+          const remoteSize = parseInt(f.size, 10);
+          const remoteTime = f.modifiedTime ? new Date(f.modifiedTime).getTime() : 0;
+          let shouldDownload = false;
+
+          if (!fs.existsSync(destPath)) {
+            shouldDownload = true;
+          } else {
+            const stat = fs.statSync(destPath);
+            if (stat.size === 0) {
+              shouldDownload = true;
+            } else if (!isNaN(remoteSize) && remoteSize !== stat.size) {
+              shouldDownload = true; // Health Sync agregó nuevas filas
+            } else if (remoteTime && remoteTime > stat.mtimeMs + 5000) {
+              shouldDownload = true; // El archivo remoto es más reciente
+            }
+          }
+
+          if (shouldDownload) {
             try {
-              const fileStream = fs.createWriteStream(destPath);
-              const downloadRes = await this.drive.files.get(
-                { fileId: f.id, alt: 'media', supportsAllDrives: true },
-                { responseType: 'stream' }
-              );
-              await new Promise((resolve, reject) => {
-                downloadRes.data
-                  .pipe(fileStream)
-                  .on('finish', resolve)
-                  .on('error', reject);
-              });
+              await this.downloadFileStream(f.id, destPath);
               syncedCount++;
-              console.log(`[DriveSync] Descargado: ${folder.name}/${f.name}`);
+              console.log(`[DriveSync] Actualizado: ${folder.name}/${f.name}`);
             } catch (dlErr) {
               console.warn(`[DriveSync] Error descargando ${f.name}:`, dlErr.message);
             }
@@ -93,22 +127,57 @@ class DriveSync {
         }
       }
 
+      // Sincronizar archivos CSV directos en la raíz (si Health Sync no usó subcarpetas)
+      for (const f of rootFiles) {
+        const targetSub = this.getTargetSubfolderForFile(f.name);
+        const localTargetDir = targetSub ? path.join(config.HEALTH_DATA_DIR, targetSub) : config.HEALTH_DATA_DIR;
+        if (!fs.existsSync(localTargetDir)) {
+          fs.mkdirSync(localTargetDir, { recursive: true });
+        }
+
+        const destPath = path.join(localTargetDir, f.name);
+        const remoteSize = parseInt(f.size, 10);
+        let shouldDownload = false;
+
+        if (!fs.existsSync(destPath)) {
+          shouldDownload = true;
+        } else {
+          const stat = fs.statSync(destPath);
+          if (stat.size === 0 || (!isNaN(remoteSize) && remoteSize !== stat.size)) {
+            shouldDownload = true;
+          }
+        }
+
+        if (shouldDownload) {
+          try {
+            await this.downloadFileStream(f.id, destPath);
+            syncedCount++;
+            console.log(`[DriveSync] Actualizado desde raíz: ${f.name} -> ${targetSub || 'health_data'}`);
+          } catch (dlErr) {
+            console.warn(`[DriveSync] Error descargando ${f.name}:`, dlErr.message);
+          }
+        }
+      }
+
       return {
         success: true,
         syncedCount,
-        message: `Sincronización completada. ${syncedCount} archivos nuevos descargados.`
+        message: `Sincronización completada con Google Drive. ${syncedCount} archivos nuevos o actualizados.`
       };
     } catch (err) {
       console.warn('[DriveSync] No se pudo sincronizar Drive:', err.message);
+      let userMsg = err.message;
+      if (err.message.includes('has not been used') || err.message.includes('disabled')) {
+        userMsg = 'La API de Google Drive está desactivada en tu proyecto de Google Cloud (inteligencia-508502).\n\nActívala en 1 clic visitando:\nhttps://console.developers.google.com/apis/api/drive.googleapis.com/overview?project=293106166812';
+      }
       return {
         success: false,
         syncedCount: 0,
-        message: err.message.includes('has not been used') || err.message.includes('disabled')
-          ? 'La API de Google Drive no está habilitada en tu proyecto de Google Cloud.'
-          : err.message
+        message: userMsg
       };
     }
   }
 }
 
 module.exports = new DriveSync();
+
