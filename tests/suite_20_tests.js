@@ -187,14 +187,20 @@ async function run20TestSuite() {
     assert.ok(rhrTrend.recent7DaysAvgRhr > 0, 'RHR promedio positivo');
   });
 
-  // 18. Fragmentación segura de mensajes de Telegram (Límite 4096 caracteres)
-  test('18. Partición segura de mensajes largos (splitMessage) para evitar límites de Telegram', () => {
+  // 18. Fragmentación segura de mensajes de Telegram y conversión de tablas markdown
+  test('18. Partición segura de mensajes largos (splitMessage) y conversión de tablas markdown a viñetas', () => {
     const longText = 'Párrafo de prueba sobre fisiología deportiva.\n\n'.repeat(150);
     const chunks = formatters.splitMessage(longText, 3000);
     assert.ok(chunks.length > 1, 'Debe dividir en múltiples fragmentos');
     for (const chunk of chunks) {
       assert.ok(chunk.length <= 3200, 'Ningún chunk debe exceder el límite seguro');
     }
+
+    // Probar conversión automática de tabla Markdown
+    const sampleTable = `| Métrica | Noche 11 | Noche 12 | Análisis |\n|---|---|---|---|\n| **Tiempo Total** | 7.55 h | 7.43 h | Duración estable |`;
+    const converted = formatters.convertMarkdownTables(sampleTable);
+    assert.ok(!converted.includes('|'), 'No debe contener caracteres de barra de tabla');
+    assert.ok(converted.includes('• *Tiempo Total:* 7.55 h ➔ *7.43 h* — Duración estable'), 'Debe formatear como viñeta');
   });
 
   // 19. Verificación de compresión y eficiencia de tokens (<600 tokens de entrada)

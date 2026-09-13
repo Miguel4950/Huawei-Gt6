@@ -119,14 +119,106 @@ function formatStepsReport(activity) {
 }
 
 /**
+ * Converts markdown tables (| Col | Col |) into mobile-friendly bullet lists
+ * because Telegram doesn't support Markdown tables and renders them misaligned.
+ */
+function convertMarkdownTables(text) {
+  if (!text || !text.includes('|')) return text;
+
+  const lines = text.split('\n');
+  const resultLines = [];
+  let inTable = false;
+  let tableHeaders = [];
+  let tableRows = [];
+
+  const isSeparator = (line) => /^\|?\s*[-:]+[-| :]*\|?$/.test(line.trim());
+  const isRow = (line) => {
+    const trimmed = line.trim();
+    return trimmed.startsWith('|') && trimmed.endsWith('|') && trimmed.includes('|');
+  };
+
+  const parseCells = (line) => {
+    const trimmed = line.trim();
+    const inner = trimmed.replace(/^\|/, '').replace(/\|$/, '');
+    return inner.split('|').map(c => c.trim());
+  };
+
+  const cleanBold = (str) => (str || '').replace(/^[*_`]+|[*_`]+$/g, '').trim();
+
+  const flushTable = () => {
+    if (tableRows.length > 0) {
+      tableRows.forEach(row => {
+        if (row.length === 0 || row.every(c => c.length === 0)) return;
+
+        const name = cleanBold(row[0]);
+
+        if (row.length === 4) {
+          const v1 = cleanBold(row[1]);
+          const v2 = cleanBold(row[2]);
+          const desc = row[3].trim();
+          resultLines.push(`• *${name}:* ${v1} ➔ *${v2}* — ${desc}`);
+        } else if (row.length === 3) {
+          const v1 = cleanBold(row[1]);
+          const v2 = cleanBold(row[2]);
+          resultLines.push(`• *${name}:* ${v1} ➔ *${v2}*`);
+        } else if (row.length === 2) {
+          const v1 = cleanBold(row[1]);
+          resultLines.push(`• *${name}:* ${v1}`);
+        } else {
+          const parts = row.slice(1).map((val, idx) => {
+            const h = tableHeaders[idx + 1] ? `*${tableHeaders[idx + 1]}:* ` : '';
+            return `${h}${cleanBold(val)}`;
+          });
+          resultLines.push(`• *${name}:* ${parts.join(' | ')}`);
+        }
+      });
+      resultLines.push('');
+    }
+    inTable = false;
+    tableHeaders = [];
+    tableRows = [];
+  };
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (isRow(line)) {
+      if (isSeparator(line)) {
+        inTable = true;
+        continue;
+      }
+      const cells = parseCells(line);
+      if (!inTable && tableHeaders.length === 0) {
+        tableHeaders = cells;
+      } else {
+        inTable = true;
+        tableRows.push(cells);
+      }
+    } else {
+      if (inTable || tableRows.length > 0) {
+        flushTable();
+      }
+      resultLines.push(line);
+    }
+  }
+
+  if (inTable || tableRows.length > 0) {
+    flushTable();
+  }
+
+  return resultLines.join('\n');
+}
+
+/**
  * Splits text into safe chunks for Telegram's 4096 character limit
  */
 function splitMessage(text, maxLength = 3900) {
-  if (!text || text.length <= maxLength) return [text];
+  if (!text) return [''];
+  const formattedText = convertMarkdownTables(text);
+  if (formattedText.length <= maxLength) return [formattedText];
   const chunks = [];
   let current = '';
 
-  const paragraphs = text.split('\n\n');
+  const paragraphs = formattedText.split('\n\n');
   for (const para of paragraphs) {
     if ((current + '\n\n' + para).length > maxLength) {
       if (current.length > 0) chunks.push(current.trim());
@@ -220,6 +312,7 @@ module.exports = {
   formatAutonomicReport,
   formatBiologicalAgeReport,
   formatAcwrReport,
+  convertMarkdownTables,
   splitMessage
 };
 

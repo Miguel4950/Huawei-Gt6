@@ -55,6 +55,9 @@ class HealthTelegramBot {
       [
         Markup.button.callback('🔄 Sincronizar Drive', 'btn_sync'),
         Markup.button.callback('💰 Tokens & Costo', 'btn_presupuesto')
+      ],
+      [
+        Markup.button.callback('📋 Ver Lista de Comandos (/lista)', 'btn_lista')
       ]
     ]);
   }
@@ -69,14 +72,40 @@ class HealthTelegramBot {
       ctx?.reply('⚠️ Ocurrió un inconveniente temporal. Intenta de nuevo o presiona /menu.').catch(() => {});
     });
 
-    // Helper to send messages safely with chunking
+    // Helper to send messages safely with chunking and table conversion
     const sendSafeMessage = async (ctx, text) => {
-      const chunks = formatters.splitMessage(text);
+      const cleanText = formatters.convertMarkdownTables(text);
+      const chunks = formatters.splitMessage(cleanText);
       for (const chunk of chunks) {
         await ctx.replyWithMarkdown(chunk).catch(async () => {
           // Fallback if markdown parsing has rare issues
-          await ctx.reply(chunk);
+          await ctx.reply(chunk.replace(/[*_`]/g, ''));
         });
+      }
+    };
+
+    // Feedback activo mientras la IA procesa: envía mensaje de espera y pulso continuo de "escribiendo..."
+    const executeWithAiFeedback = async (ctx, waitingTitle, taskFn) => {
+      let waitingMsg = null;
+      try {
+        waitingMsg = await ctx.reply(`⏳ *${waitingTitle}*\n_Procesando tus biomarcadores con Gemini 3.8 Flash..._`, { parse_mode: 'Markdown' });
+      } catch (e) {
+        waitingMsg = await ctx.reply(`⏳ ${waitingTitle} (Procesando con Gemini 3.8 Flash...)`).catch(() => null);
+      }
+
+      // Pulso continuo de "escribiendo..." cada 3.5 segundos para que Telegram nunca apague el estado
+      const typingInterval = setInterval(() => {
+        ctx.sendChatAction('typing').catch(() => {});
+      }, 3500);
+      ctx.sendChatAction('typing').catch(() => {});
+
+      try {
+        return await taskFn();
+      } finally {
+        clearInterval(typingInterval);
+        if (waitingMsg) {
+          await ctx.deleteMessage(waitingMsg.message_id).catch(() => {});
+        }
       }
     };
 
@@ -86,6 +115,7 @@ class HealthTelegramBot {
         `Estoy conectado a los datos de tu smartwatch *Huawei Watch GT* (vía Health Sync).\n` +
         `Analizo tu sueño, frecuencia cardíaca, pasos, oxígeno y entrenamientos con *Gemini 3.8 Flash (Thinking MEDIUM)* ` +
         `para darte diagnósticos médicos y deportivos comprensibles y profundos.\n\n` +
+        `📖 *¿Quieres ver todos los comandos disponibles?* Escribe /lista o presiona el botón abajo.\n\n` +
         `👇 *Selecciona una opción del menú o escribe cualquier comando:*`;
       try {
         await ctx.replyWithMarkdown(text, this.getMenuKeyboard());
@@ -97,45 +127,48 @@ class HealthTelegramBot {
     bot.start(handleStart);
     bot.command('menu', handleStart);
 
-    // AYUDA
+    // LISTA DE COMANDOS Y GUÍA COMPLETA
     const handleHelp = async (ctx) => {
-      let text = `📖 *GUÍA COMPLETA DE COMANDOS DEL COACH BIOMÉTRICO*\n\n` +
+      let text = `📋 *LISTA COMPLETA DE COMANDOS — COACH BIOMÉTRICO*\n\n` +
         `🤖 *Consulta Directa con IA:*\n` +
-        `• /pregunta [tu duda] - Hazle una consulta libre y puntual a tu Coach IA\n\n` +
-        `🏋️ *Entrenamiento de Alto Rendimiento:*\n` +
-        `• /prescripcion o /plan_hoy - Sesión del día calculada según tu recuperación, pulso y carga\n` +
-        `• /acwr o /carga_entrenamiento - Ratio Agudo:Crónico de carga y prevención de lesiones\n` +
-        `• /actividad o /entrenamiento - Análisis del último ejercicio registrado\n` +
-        `• /recuperacion_entreno - Horas restantes de supercompensación muscular\n` +
-        `• /historial_actividades - Historial de los últimos entrenamientos\n\n` +
+        `• /pregunta [tu duda] — Hazle cualquier consulta abierta a tu Coach IA (con tu contexto biométrico en mente)\n\n` +
+        `🏋️ *Entrenamiento y Rendimiento:*\n` +
+        `• /prescripcion (o /plan_hoy) — Sesión del día calculada según tu recuperación, pulso y zonas Karvonen\n` +
+        `• /acwr (o /carga_entrenamiento) — Ratio agudo:crónico de carga para evitar sobreentrenamiento y lesiones\n` +
+        `• /actividad (o /entrenamiento) — Análisis profundo de tu última sesión de ejercicio\n` +
+        `• /recuperacion_entreno — Horas exactas que te faltan para recuperar al 100%\n` +
+        `• /historial_actividades — Resumen de tus últimos 5 entrenamientos\n\n` +
         `🌙 *Sueño y Descanso:*\n` +
-        `• /comodormi - Diagnóstico completo de anoche con IA\n` +
-        `• /fases - Gráfico de barras de fases (REM, Profundo, Ligero)\n` +
-        `• /ciclos - Conteo de ciclos ultradianos (~90 min)\n` +
-        `• /eficiencia - Porcentaje real dormido vs tiempo en cama\n` +
-        `• /deuda_sueno - Déficit acumulado en 7 días\n` +
-        `• /cronotipo - Regularidad circadiana y tipo de reloj biológico\n` +
-        `• /apnea_oxigeno - Cruce de despertares con caídas de SpO2\n\n` +
-        `🧠 *Corazón, Autónomo & Longevidad:*\n` +
-        `• /sistema_autonomo o /estres_cardiaco - Tono vagal, descanso nocturno (dip) y balance simpático\n` +
-        `• /edad_biologica o /longevidad - Edad biológica vs cronológica basada en tus biomarcadores\n` +
-        `• /corazon - Estadísticas y pulso de hoy\n` +
-        `• /frecuencia_reposo - Pulso en reposo (RHR) y tendencia 7d\n` +
-        `• /zonas - Minutos en Zonas Cardíacas Z1 a Z5 (Karvonen)\n` +
-        `• /picos_estres - Taquicardias en reposo detectadas\n\n` +
-        `⚡ *Batería Corporal & Día a Día:*\n` +
-        `• /readiness o /bateria - Semáforo de energía y preparación física (0-100)\n` +
-        `• /pasos - Pasos, distancia, calorías y hora pico\n` +
-        `• /sedentarismo - Horas continuas de inactividad diurna\n` +
-        `• /hoy - Tablero de mando integral 360° del día\n` +
-        `• /semanal - Informe ejecutivo semanal con metas\n` +
-        `• /sync - Sincronizar carpetas de Google Drive\n` +
-        `• /presupuesto - Control de tokens y saldo restante ($5/mes)\n\n` +
-        `📎 *Subida Directa:* ¡También puedes enviarme cualquier archivo CSV por este chat y lo analizaré de inmediato!`;
+        `• /comodormi — Diagnóstico clínico de cómo dormiste anoche con IA\n` +
+        `• /fases — Barras visuales de sueño REM, Profundo y Ligero\n` +
+        `• /ciclos — Ciclos ultradianos (~90 min) y calidad del despertar\n` +
+        `• /eficiencia — Porcentaje real dormido vs tiempo en cama\n` +
+        `• /deuda_sueno — Déficit acumulado de horas de sueño en los últimos 7 días\n` +
+        `• /cronotipo — Identificación de tu reloj biológico (Alondra / Búho)\n` +
+        `• /apnea_oxigeno — Despertares nocturnos cruzados con caídas de SpO2\n\n` +
+        `🧠 *Corazón, Sistema Autónomo y Longevidad:*\n` +
+        `• /sistema_autonomo (o /estres_cardiaco) — Tono vagal, estrés cardíaco y caída nocturna (dip %)\n` +
+        `• /edad_biologica (o /longevidad) — Edad biológica vs cronológica según biomarcadores\n` +
+        `• /corazon — Frecuencia cardíaca media, mínima y pico del día\n` +
+        `• /frecuencia_reposo — Pulso en reposo (RHR) y tendencia de 7 días\n` +
+        `• /zonas — Distribución del tiempo en Zonas Cardíacas Z1 a Z5\n` +
+        `• /picos_estres — Taquicardias en reposo detectadas (pulso alto sin movimiento)\n\n` +
+        `⚡ *Batería Corporal y Actividad Diaria:*\n` +
+        `• /readiness (o /bateria) — Semáforo de preparación física y energía diaria (0-100)\n` +
+        `• /pasos — Pasos caminados, kilómetros y calorías quemadas\n` +
+        `• /sedentarismo — Horas continuas de inactividad diurna sentado\n` +
+        `• /hoy — Tablero de mando integral 360° con todas las métricas de hoy\n` +
+        `• /semanal — Informe ejecutivo de la semana con áreas a optimizar\n\n` +
+        `⚙️ *Herramientas y Sistema:*\n` +
+        `• /menu — Abre el menú interactivo con botones rápidos\n` +
+        `• /lista (o /comandos) — Muestra esta lista de comandos\n` +
+        `• /sync — Forzar sincronización inmediata desde Google Drive\n` +
+        `• /presupuesto — Contador de tokens consumidos y saldo de tus $5 USD/mes\n\n` +
+        `📎 *Subida Directa:* Puedes arrastrar y soltar cualquier archivo CSV en este chat para analizarlo al instante.`;
       await sendSafeMessage(ctx, text);
     };
     bot.help(handleHelp);
-    bot.command('ayuda', handleHelp);
+    bot.command(['ayuda', 'lista', 'comandos', 'help'], handleHelp);
 
     // SYNC DRIVE
     const handleSync = async (ctx) => {
@@ -152,54 +185,57 @@ class HealthTelegramBot {
 
     // COMODORMI
     const handleSleep = async (ctx) => {
-      sendTyping(ctx);
       const sleep = sleepEngine.getLatestNight();
       const prevSleep = sleepEngine.getPreviousNight();
       if (!sleep) {
         return ctx.replyWithMarkdown('❌ No se encontraron registros de sueño en la carpeta. Usa /sync o envía un CSV.');
       }
-      try {
-        const prompt = prompts.buildSleepPrompt(sleep, prevSleep);
-        const aiRes = await geminiCoach.generateAnalysis(prompt);
-        const msg = formatters.formatSleepSummary(sleep, aiRes.text);
-        await sendSafeMessage(ctx, msg);
-      } catch (err) {
-        const msg = formatters.formatSleepSummary(sleep, `(Nota: Análisis local - ${err.message})`);
-        await sendSafeMessage(ctx, msg);
-      }
+      await executeWithAiFeedback(ctx, 'Analizando tu sueño de anoche...', async () => {
+        try {
+          const prompt = prompts.buildSleepPrompt(sleep, prevSleep);
+          const aiRes = await geminiCoach.generateAnalysis(prompt);
+          const msg = formatters.formatSleepSummary(sleep, aiRes.text);
+          await sendSafeMessage(ctx, msg);
+        } catch (err) {
+          const msg = formatters.formatSleepSummary(sleep, `(Nota: Análisis local - ${err.message})`);
+          await sendSafeMessage(ctx, msg);
+        }
+      });
     };
     bot.command('comodormi', handleSleep);
 
     // PRESCRIPCION DIARIA DE ENTRENAMIENTO
     const handlePrescription = async (ctx) => {
-      sendTyping(ctx);
       const prescription = crossAnalytics.getDailyPrescription();
-      try {
-        const prompt = prompts.buildPrescriptionPrompt(prescription);
-        const aiRes = await geminiCoach.generateAnalysis(prompt);
-        const msg = formatters.formatPrescriptionReport(prescription, aiRes.text);
-        await sendSafeMessage(ctx, msg);
-      } catch (err) {
-        const msg = formatters.formatPrescriptionReport(prescription, `(Plan base algorítmico: ${err.message})`);
-        await sendSafeMessage(ctx, msg);
-      }
+      await executeWithAiFeedback(ctx, 'Calculando tu prescripción deportiva...', async () => {
+        try {
+          const prompt = prompts.buildPrescriptionPrompt(prescription);
+          const aiRes = await geminiCoach.generateAnalysis(prompt);
+          const msg = formatters.formatPrescriptionReport(prescription, aiRes.text);
+          await sendSafeMessage(ctx, msg);
+        } catch (err) {
+          const msg = formatters.formatPrescriptionReport(prescription, `(Plan base algorítmico: ${err.message})`);
+          await sendSafeMessage(ctx, msg);
+        }
+      });
     };
     bot.command('prescripcion', handlePrescription);
     bot.command('plan_hoy', handlePrescription);
 
     // SISTEMA AUTONOMO & TONO VAGAL
     const handleAutonomic = async (ctx) => {
-      sendTyping(ctx);
       const ans = crossAnalytics.getAutonomicBalance();
-      try {
-        const prompt = prompts.buildAutonomicPrompt(ans);
-        const aiRes = await geminiCoach.generateAnalysis(prompt);
-        const msg = formatters.formatAutonomicReport(ans, aiRes.text);
-        await sendSafeMessage(ctx, msg);
-      } catch (err) {
-        const msg = formatters.formatAutonomicReport(ans, `(Diagnóstico base: ${err.message})`);
-        await sendSafeMessage(ctx, msg);
-      }
+      await executeWithAiFeedback(ctx, 'Evaluando sistema autónomo y tono vagal...', async () => {
+        try {
+          const prompt = prompts.buildAutonomicPrompt(ans);
+          const aiRes = await geminiCoach.generateAnalysis(prompt);
+          const msg = formatters.formatAutonomicReport(ans, aiRes.text);
+          await sendSafeMessage(ctx, msg);
+        } catch (err) {
+          const msg = formatters.formatAutonomicReport(ans, `(Diagnóstico base: ${err.message})`);
+          await sendSafeMessage(ctx, msg);
+        }
+      });
     };
     bot.command('sistema_autonomo', handleAutonomic);
     bot.command('tono_vagal', handleAutonomic);
@@ -207,17 +243,18 @@ class HealthTelegramBot {
 
     // EDAD BIOLOGICA & LONGEVIDAD
     const handleBiologicalAge = async (ctx) => {
-      sendTyping(ctx);
       const bio = crossAnalytics.getBiologicalFitnessAge();
-      try {
-        const prompt = prompts.buildBiologicalAgePrompt(bio);
-        const aiRes = await geminiCoach.generateAnalysis(prompt);
-        const msg = formatters.formatBiologicalAgeReport(bio, aiRes.text);
-        await sendSafeMessage(ctx, msg);
-      } catch (err) {
-        const msg = formatters.formatBiologicalAgeReport(bio, `(Diagnóstico base: ${err.message})`);
-        await sendSafeMessage(ctx, msg);
-      }
+      await executeWithAiFeedback(ctx, 'Calculando edad biológica y longevidad...', async () => {
+        try {
+          const prompt = prompts.buildBiologicalAgePrompt(bio);
+          const aiRes = await geminiCoach.generateAnalysis(prompt);
+          const msg = formatters.formatBiologicalAgeReport(bio, aiRes.text);
+          await sendSafeMessage(ctx, msg);
+        } catch (err) {
+          const msg = formatters.formatBiologicalAgeReport(bio, `(Diagnóstico base: ${err.message})`);
+          await sendSafeMessage(ctx, msg);
+        }
+      });
     };
     bot.command('edad_biologica', handleBiologicalAge);
     bot.command('longevidad', handleBiologicalAge);
@@ -241,45 +278,46 @@ class HealthTelegramBot {
         return ctx.replyWithMarkdown('❓ *¿Qué deseas consultar a tu Coach IA?*\n\nEscribe tu duda después del comando, por ejemplo:\n• `/pregunta ¿Por qué tengo el pulso tan bajo hoy?`\n• `/pregunta ¿Puedo hacer pesas si dormí 6 horas?`');
       }
 
-      sendTyping(ctx);
+      await executeWithAiFeedback(ctx, 'Consultando a tu Coach IA...', async () => {
+        const snapshot = {
+          ultimoSueno: sleepEngine.getLatestNight(),
+          ultimoPulso: heartEngine.getLatestDayStats(),
+          ultimosPasos: activityEngine.getLatestDayStats(),
+          ultimoEntrenamiento: workoutEngine.getLatestWorkout(),
+          readiness: readinessEngine.calculateReadiness(),
+          prescripcion: crossAnalytics.getDailyPrescription(),
+          balanceAutonomo: crossAnalytics.getAutonomicBalance(),
+          edadBiologica: crossAnalytics.getBiologicalFitnessAge(),
+          cargaAcwr: crossAnalytics.calculateACWR()
+        };
 
-      const snapshot = {
-        ultimoSueno: sleepEngine.getLatestNight(),
-        ultimoPulso: heartEngine.getLatestDayStats(),
-        ultimosPasos: activityEngine.getLatestDayStats(),
-        ultimoEntrenamiento: workoutEngine.getLatestWorkout(),
-        readiness: readinessEngine.calculateReadiness(),
-        prescripcion: crossAnalytics.getDailyPrescription(),
-        balanceAutonomo: crossAnalytics.getAutonomicBalance(),
-        edadBiologica: crossAnalytics.getBiologicalFitnessAge(),
-        cargaAcwr: crossAnalytics.calculateACWR()
-      };
-
-      try {
-        const prompt = prompts.buildConversationPrompt(text, snapshot);
-        const aiRes = await geminiCoach.generateAnalysis(prompt);
-        await sendSafeMessage(ctx, `💬 *Respuesta de tu Coach IA:*\n\n${aiRes.text}`);
-      } catch (err) {
-        await sendSafeMessage(ctx, `⚠️ Error en la consulta: ${err.message}`);
-      }
+        try {
+          const prompt = prompts.buildConversationPrompt(text, snapshot);
+          const aiRes = await geminiCoach.generateAnalysis(prompt);
+          await sendSafeMessage(ctx, `💬 *Respuesta de tu Coach IA:*\n\n${aiRes.text}`);
+        } catch (err) {
+          await sendSafeMessage(ctx, `⚠️ Error en la consulta: ${err.message}`);
+        }
+      });
     });
 
     // ACTIVIDAD / ENTRENAMIENTO
     const handleWorkout = async (ctx) => {
-      sendTyping(ctx);
       const workout = workoutEngine.getLatestWorkout();
       if (!workout) {
         return ctx.replyWithMarkdown('❌ No se encontraron actividades en la carpeta de Actividades.');
       }
-      try {
-        const prompt = prompts.buildWorkoutPrompt(workout);
-        const aiRes = await geminiCoach.generateAnalysis(prompt);
-        const msg = formatters.formatWorkoutReport(workout, aiRes.text);
-        await sendSafeMessage(ctx, msg);
-      } catch (err) {
-        const msg = formatters.formatWorkoutReport(workout, `(Diagnóstico base: ${err.message})`);
-        await sendSafeMessage(ctx, msg);
-      }
+      await executeWithAiFeedback(ctx, 'Analizando tu último entrenamiento...', async () => {
+        try {
+          const prompt = prompts.buildWorkoutPrompt(workout);
+          const aiRes = await geminiCoach.generateAnalysis(prompt);
+          const msg = formatters.formatWorkoutReport(workout, aiRes.text);
+          await sendSafeMessage(ctx, msg);
+        } catch (err) {
+          const msg = formatters.formatWorkoutReport(workout, `(Diagnóstico base: ${err.message})`);
+          await sendSafeMessage(ctx, msg);
+        }
+      });
     };
     bot.command('actividad', handleWorkout);
     bot.command('entrenamiento', handleWorkout);
@@ -381,37 +419,39 @@ class HealthTelegramBot {
 
     // READINESS / BATERIA
     const handleReadiness = async (ctx) => {
-      sendTyping(ctx);
       const readiness = readinessEngine.calculateReadiness();
-      try {
-        const prompt = prompts.buildReadinessPrompt(readiness);
-        const aiRes = await geminiCoach.generateAnalysis(prompt);
-        const msg = formatters.formatReadinessReport(readiness, aiRes.text);
-        await sendSafeMessage(ctx, msg);
-      } catch (err) {
-        const msg = formatters.formatReadinessReport(readiness, `(Diagnóstico base: ${err.message})`);
-        await sendSafeMessage(ctx, msg);
-      }
+      await executeWithAiFeedback(ctx, 'Evaluando tu Batería Corporal y Readiness...', async () => {
+        try {
+          const prompt = prompts.buildReadinessPrompt(readiness);
+          const aiRes = await geminiCoach.generateAnalysis(prompt);
+          const msg = formatters.formatReadinessReport(readiness, aiRes.text);
+          await sendSafeMessage(ctx, msg);
+        } catch (err) {
+          const msg = formatters.formatReadinessReport(readiness, `(Diagnóstico base: ${err.message})`);
+          await sendSafeMessage(ctx, msg);
+        }
+      });
     };
     bot.command('readiness', handleReadiness);
     bot.command('bateria', handleReadiness);
 
     // CORAZON
     const handleHeart = async (ctx) => {
-      sendTyping(ctx);
       const heart = heartEngine.getLatestDayStats();
       const rhrTrend = heartEngine.getRhrTrend();
       const spikes = heartEngine.detectStressSpikes(heart ? heart.date : '');
       if (!heart) return ctx.replyWithMarkdown('❌ No hay datos de frecuencia cardíaca disponibles.');
-      try {
-        const prompt = prompts.buildHeartPrompt(heart, rhrTrend, spikes);
-        const aiRes = await geminiCoach.generateAnalysis(prompt);
-        const msg = formatters.formatHeartReport(heart, rhrTrend, aiRes.text);
-        await sendSafeMessage(ctx, msg);
-      } catch (err) {
-        const msg = formatters.formatHeartReport(heart, rhrTrend, `(Diagnóstico base: ${err.message})`);
-        await sendSafeMessage(ctx, msg);
-      }
+      await executeWithAiFeedback(ctx, 'Analizando perfil cardíaco y zonas...', async () => {
+        try {
+          const prompt = prompts.buildHeartPrompt(heart, rhrTrend, spikes);
+          const aiRes = await geminiCoach.generateAnalysis(prompt);
+          const msg = formatters.formatHeartReport(heart, rhrTrend, aiRes.text);
+          await sendSafeMessage(ctx, msg);
+        } catch (err) {
+          const msg = formatters.formatHeartReport(heart, rhrTrend, `(Diagnóstico base: ${err.message})`);
+          await sendSafeMessage(ctx, msg);
+        }
+      });
     };
     bot.command('corazon', handleHeart);
 
@@ -499,7 +539,6 @@ class HealthTelegramBot {
 
     // SEMANAL
     bot.command('semanal', async (ctx) => {
-      sendTyping(ctx);
       const rhrTrend = heartEngine.getRhrTrend();
       const stepSummary = activityEngine.getWeeklySummary();
       const sleepDebt = sleepEngine.calculateSleepDebt(8.0);
@@ -513,18 +552,20 @@ class HealthTelegramBot {
         deudaSuenoAcumulada: sleepDebt.totalDebtHours
       };
 
-      try {
-        const prompt = prompts.buildWeeklyPrompt(summaryPayload);
-        const aiRes = await geminiCoach.generateAnalysis(prompt);
-        let t = `📈 *INFORME EJECUTIVO SEMANAL*\n\n` +
-          `• 👣 *Pasos Semanales:* ${stepSummary.totalSteps.toLocaleString()} (Media: ${stepSummary.avgDailySteps.toLocaleString()}/día)\n` +
-          `• 🛌 *Sueño Promedio:* ${sleepDebt.avgDailySleepHours}h/noche (Deuda: ${sleepDebt.totalDebtHours}h)\n` +
-          `• ❤️ *RHR Base:* ${rhrTrend.recent7DaysAvgRhr} bpm\n\n` +
-          `🏆 *Diagnóstico Semanal de Gemini:*\n${aiRes.text}`;
-        await sendSafeMessage(ctx, t);
-      } catch (err) {
-        await ctx.replyWithMarkdown(`Error generando reporte semanal: ${err.message}`);
-      }
+      await executeWithAiFeedback(ctx, 'Compilando tu informe ejecutivo semanal...', async () => {
+        try {
+          const prompt = prompts.buildWeeklyPrompt(summaryPayload);
+          const aiRes = await geminiCoach.generateAnalysis(prompt);
+          let t = `📈 *INFORME EJECUTIVO SEMANAL*\n\n` +
+            `• 👣 *Pasos Semanales:* ${stepSummary.totalSteps.toLocaleString()} (Media: ${stepSummary.avgDailySteps.toLocaleString()}/día)\n` +
+            `• 🛌 *Sueño Promedio:* ${sleepDebt.avgDailySleepHours}h/noche (Deuda: ${sleepDebt.totalDebtHours}h)\n` +
+            `• ❤️ *RHR Base:* ${rhrTrend.recent7DaysAvgRhr} bpm\n\n` +
+            `🏆 *Diagnóstico Semanal de Gemini:*\n${aiRes.text}`;
+          await sendSafeMessage(ctx, t);
+        } catch (err) {
+          await ctx.replyWithMarkdown(`Error generando reporte semanal: ${err.message}`);
+        }
+      });
     });
 
     // PRESUPUESTO
@@ -663,7 +704,7 @@ class HealthTelegramBot {
       ctx.message = { text: '/presupuesto' };
       bot.handleUpdate({ message: { chat: ctx.chat, text: '/presupuesto' } });
     });
-    bot.action('btn_ayuda', async (ctx) => {
+    bot.action(['btn_ayuda', 'btn_lista'], async (ctx) => {
       await ctx.answerCbQuery().catch(() => {});
       await handleHelp(ctx);
     });
@@ -683,6 +724,7 @@ class HealthTelegramBot {
         const greetingMsg = `👋 *¡Hola! Soy tu Asistente Biométrico y Coach Personal.*\n\n` +
           `Para interactuar conmigo, por favor utiliza los comandos oficiales con barra diagonal:\n\n` +
           `• Presiona /menu para ver todos tus reportes y botones.\n` +
+          `• Escribe /lista para ver la guía completa de todos los comandos.\n` +
           `• Para ver tu sueño: /comodormi\n` +
           `• Si quieres hacerme una pregunta directa con IA, escribe:\n\`/pregunta [tu duda aquí]\`\n\n` +
           `👇 *O selecciona una opción del menú:*`;
@@ -697,6 +739,7 @@ class HealthTelegramBot {
       const infoMsg = `ℹ️ *Comando no reconocido: "${rawText.trim()}"*\n\n` +
         `En este bot todos los comandos inician con barra diagonal */*.\n\n` +
         `• Para ver todas las opciones: /menu\n` +
+        `• Para ver la lista completa de comandos: /lista\n` +
         `• Para ver tu sueño: /comodormi\n` +
         `• Para consultar a la IA: \`/pregunta [tu duda aquí]\`\n\n` +
         `👇 *O presiona un botón del menú:*`;

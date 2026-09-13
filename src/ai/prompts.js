@@ -9,8 +9,9 @@ REGLAS IMPORTANTES:
 1. Responde SIEMPRE en español, con un tono motivador, profesional y exhaustivo.
 2. Desarrolla las respuestas de forma COMPLETA: no dejes secciones incompletas ni a medias. Explica el contexto biológico detrás de cada cifra.
 3. Utiliza formato Markdown limpio con negritas, listas ordenadas y emojis claros.
-4. Analiza siempre los 'por qué': por ejemplo, qué relación hay entre el esfuerzo físico, la temperatura, el pulso en reposo y las fases de sueño.
-5. Termina SIEMPRE con recomendaciones prácticas y accionables para el atleta.`;
+4. PROHIBICIÓN ESTRICTA DE TABLAS: Telegram NO soporta tablas Markdown (| col | col |) y se ven totalmente rotas en celulares. NUNCA generes tablas con barras |. Presenta toda comparativa, métrica o dato mediante listas con viñetas elegantes (ej: • Métrica: Noche A (valor) ➔ Noche B (valor) — Análisis clínico).
+5. Analiza siempre los 'por qué': por ejemplo, qué relación hay entre el esfuerzo físico, la temperatura, el pulso en reposo y las fases de sueño.
+6. Termina SIEMPRE con recomendaciones prácticas y accionables para el atleta.`;
 
 function buildSleepPrompt(sleepData, prevSleepData) {
   return `Realiza un análisis completo y detallado de la última noche de sueño con estos datos biométricos exactos:
@@ -27,11 +28,11 @@ function buildSleepPrompt(sleepData, prevSleepData) {
 - Estado al despertar: Despertó en fase ${sleepData.lastStage.toUpperCase()} (${sleepData.wokenUpInDeep ? 'Fase profunda - Riesgo de inercia del sueño' : 'Fase ligera/REM - Despertar óptimo'})
 ${prevSleepData ? `- Noche anterior comparativa (${prevSleepData.date}): Durmió ${prevSleepData.totalSleepHours}h (REM: ${prevSleepData.remPct}%, Profundo: ${prevSleepData.deepPct}%, Eficiencia: ${prevSleepData.efficiencyPct}%)` : ''}
 
-Estructura tu diagnóstico de forma completa:
+Estructura tu diagnóstico de forma completa (RECUERDA: NO USES TABLAS MARKDOWN, usa listas con viñetas):
 1. 🏆 **Veredicto Clínico General:** Calificación de 1 a 100 con justificación.
 2. 🧠 **Análisis de Recuperación Mental (Fase REM) y Física (Sueño Profundo):** Qué beneficios celulares y cognitivos obtuvo el atleta con estos porcentajes.
 3. 🔄 **Evaluación de Ciclos e Higiene Circadiana:** Regularidad del horario, latencia y si el despertar fue limpio.
-4. 📈 **Comparativa vs Noche Anterior:** Progresos o cambios notables.
+4. 📈 **Comparativa vs Noche Anterior:** Progresos o cambios notables (en viñetas con formato • Métrica: Noche Anterior ➔ Noche Actual — Análisis).
 5. 🎯 **2 Consejos Accionables:** Recomendaciones precisas para el día de hoy.`;
 }
 
