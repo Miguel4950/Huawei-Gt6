@@ -554,6 +554,19 @@ class HealthTelegramBot {
         }
       }, TEN_MINUTES_MS);
 
+      // 🛡️ ANTI-INACTIVIDAD (Keep-Alive): Evita que Render se duerma en el plan gratuito
+      // Render suspende tras 15 min de inactividad HTTP externa.
+      // Hacemos un ping a través de internet a la URL pública cada 9 minutos para mantenerlo despierto 24/7.
+      const NINE_MINUTES_MS = 9 * 60 * 1000;
+      const externalUrl = process.env.RENDER_EXTERNAL_URL || 'https://huawei-gt6.onrender.com';
+      this.keepAliveInterval = setInterval(() => {
+        https.get(`${externalUrl}/health`, (res) => {
+          console.log(`[KeepAlive] ✅ Ping preventivo a ${externalUrl}/health (Status: ${res.statusCode})`);
+        }).on('error', (err) => {
+          console.warn('[KeepAlive] Error en ping preventivo:', err.message);
+        });
+      }, NINE_MINUTES_MS);
+
     }).catch(err => {
       console.error('[Bot] Error en launch:', err.message);
     });
@@ -563,6 +576,10 @@ class HealthTelegramBot {
     if (this.syncInterval) {
       clearInterval(this.syncInterval);
       this.syncInterval = null;
+    }
+    if (this.keepAliveInterval) {
+      clearInterval(this.keepAliveInterval);
+      this.keepAliveInterval = null;
     }
     if (this.bot && this.isLaunched) {
       this.bot.stop('SIGINT');
