@@ -63,9 +63,53 @@ class DriveSync {
 
     let syncedCount = 0;
     try {
-      // 1. Obtener subcarpetas y archivos en la carpeta raíz
+      // 0. Validar acceso a la carpeta raíz o detectar carpeta compartida
+      let targetFolderId = this.rootFolderId;
+      let folderAccessible = false;
+
+      try {
+        await this.drive.files.get({
+          fileId: targetFolderId,
+          fields: 'id, name',
+          supportsAllDrives: true
+        });
+        folderAccessible = true;
+      } catch (accessErr) {
+        // Si no se encuentra por ID fijo, buscar cualquier carpeta compartida con la cuenta
+        try {
+          const sharedRes = await this.drive.files.list({
+            q: "mimeType = 'application/vnd.google-apps.folder' and trashed = false",
+            fields: 'files(id, name)',
+            supportsAllDrives: true,
+            includeItemsFromAllDrives: true
+          });
+          const sharedFolders = sharedRes.data.files || [];
+          const healthFolder = sharedFolders.find(f => {
+            const n = f.name.toLowerCase();
+            return n.includes('health') || n.includes('sync') || n.includes('huawei');
+          }) || sharedFolders[0];
+
+          if (healthFolder) {
+            targetFolderId = healthFolder.id;
+            folderAccessible = true;
+            console.log(`[DriveSync] Carpeta compartida detectada automáticamente: "${healthFolder.name}" (${healthFolder.id})`);
+          }
+        } catch (searchErr) {
+          console.warn('[DriveSync] Error buscando carpetas compartidas:', searchErr.message);
+        }
+      }
+
+      if (!folderAccessible) {
+        return {
+          success: false,
+          syncedCount: 0,
+          message: '⚠️ La carpeta de Google Drive no está compartida con la cuenta del bot.\n\nPara solucionarlo en 30 segundos:\n1. Abre Google Drive (en tu móvil o PC).\n2. Busca la carpeta de Health Sync (donde se guardan los CSV de Huawei).\n3. Clic derecho o 3 puntos ➔ Compartir.\n4. Agrega este correo:\n`vertex-api-user@inteligencia-508502.iam.gserviceaccount.com`\n(como Lector o Editor) y dale Guardar.\n\nLuego vuelve a Telegram y presiona /sync.'
+        };
+      }
+
+      // 1. Obtener subcarpetas y archivos en la carpeta raíz accesible
       const listPromise = this.drive.files.list({
-        q: `'${this.rootFolderId}' in parents and trashed = false`,
+        q: `'${targetFolderId}' in parents and trashed = false`,
         fields: 'files(id, name, mimeType, modifiedTime, size)',
         supportsAllDrives: true,
         includeItemsFromAllDrives: true

@@ -15,6 +15,7 @@ const geminiCoach = require('../ai/geminiCoach');
 const prompts = require('../ai/prompts');
 const formatters = require('./formatters');
 const driveSync = require('../drive/driveSync');
+const dataLoader = require('../data/dataLoader');
 
 class HealthTelegramBot {
   constructor(token = config.TELEGRAM_TOKEN) {
@@ -46,18 +47,19 @@ class HealthTelegramBot {
       ],
       [
         Markup.button.callback('🚶 Pasos y Actividad', 'btn_pasos'),
-        Markup.button.callback('📅 Resumen Hoy', 'btn_hoy')
+        Markup.button.callback('⚖️ Peso & Forma', 'btn_peso')
       ],
       [
-        Markup.button.callback('📊 Fases de Sueño', 'btn_fases'),
+        Markup.button.callback('📅 Resumen Hoy', 'btn_hoy'),
         Markup.button.callback('📈 Informe Semanal', 'btn_semanal')
       ],
       [
-        Markup.button.callback('🔄 Sincronizar Drive', 'btn_sync'),
-        Markup.button.callback('💰 Tokens & Costo', 'btn_presupuesto')
+        Markup.button.callback('📊 Fases de Sueño', 'btn_fases'),
+        Markup.button.callback('🔄 Sincronizar Drive', 'btn_sync')
       ],
       [
-        Markup.button.callback('📋 Ver Lista de Comandos (/lista)', 'btn_lista')
+        Markup.button.callback('💰 Tokens & Costo', 'btn_presupuesto'),
+        Markup.button.callback('📋 Ver Lista (/lista)', 'btn_lista')
       ]
     ]);
   }
@@ -156,6 +158,7 @@ class HealthTelegramBot {
         `⚡ *Batería Corporal y Actividad Diaria:*\n` +
         `• /readiness (o /bateria) — Semáforo de preparación física y energía diaria (0-100)\n` +
         `• /pasos — Pasos caminados, kilómetros y calorías quemadas\n` +
+        `• /peso — Peso corporal, grasa, masa muscular y tasa metabólica basal (BMR)\n` +
         `• /sedentarismo — Horas continuas de inactividad diurna sentado\n` +
         `• /hoy — Tablero de mando integral 360° con todas las métricas de hoy\n` +
         `• /semanal — Informe ejecutivo de la semana con áreas a optimizar\n\n` +
@@ -523,6 +526,21 @@ class HealthTelegramBot {
     };
     bot.command('pasos', handleSteps);
 
+    // PESO Y COMPOSICION CORPORAL
+    const handleWeight = async (ctx) => {
+      sendTyping(ctx);
+      const records = dataLoader.loadWeightRecords();
+      const latest = records.length > 0 ? records[records.length - 1] : null;
+      const msg = formatters.formatWeightReport(latest);
+      await sendSafeMessage(ctx, msg);
+    };
+    bot.command('peso', handleWeight);
+    bot.command('composicion_corporal', handleWeight);
+    bot.action('btn_peso', async (ctx) => {
+      await ctx.answerCbQuery().catch(() => {});
+      await handleWeight(ctx);
+    });
+
     // SEDENTARISMO
     bot.command('sedentarismo', async (ctx) => {
       const act = activityEngine.getLatestDayStats();
@@ -644,6 +662,8 @@ class HealthTelegramBot {
           targetFolder = 'Health Sync Saturación de oxígeno';
         } else if (name.includes('Actividades') || name.includes('GENERIC') || name.includes('Actividad')) {
           targetFolder = 'Health Sync Actividades';
+        } else if (name.includes('Peso') || name.includes('peso')) {
+          targetFolder = 'Health Sync Peso';
         }
 
         const destDir = path.join(config.HEALTH_DATA_DIR, targetFolder);
@@ -671,6 +691,8 @@ class HealthTelegramBot {
           await handleSteps(ctx);
         } else if (targetFolder === 'Health Sync Actividades') {
           await handleWorkout(ctx);
+        } else if (targetFolder === 'Health Sync Peso') {
+          await handleWeight(ctx);
         }
       } catch (err) {
         await ctx.reply(`❌ Error guardando el archivo: ${err.message}`);

@@ -186,6 +186,39 @@ class DataLoader {
     records.sort((a, b) => (b.datetime || '').localeCompare(a.datetime || ''));
     return records;
   }
+
+  loadWeightRecords() {
+    const files = this.listFiles('Health Sync Peso');
+    const records = [];
+    for (const f of files) {
+      if (f.name.endsWith('.csv')) {
+        const content = fs.readFileSync(f.fullPath, 'utf8');
+        const rows = parseCsv(content);
+        for (const r of rows) {
+          const rawFecha = r['Fecha'] || r['fecha'];
+          const rawWeight = r['Peso'] || r['peso'];
+          if (rawFecha && rawWeight) {
+            const weight = parseFloat(rawWeight);
+            if (!isNaN(weight) && weight > 20 && weight < 300) {
+              records.push({
+                datetime: rawFecha,
+                weightKg: weight,
+                bodyFatPct: parseFloat(r['Porcentaje de grasa corporal'] || '0'),
+                muscleMassKg: parseFloat(r['Masa muscular'] || '0'),
+                boneMassKg: parseFloat(r['La masa ósea'] || '0'),
+                waterPct: parseFloat(r['Agua corporal total'] || '0'),
+                bmrCalories: parseInt(r['Tasa metabólica base'] || '0', 10),
+                sourceFile: f.name
+              });
+            }
+          }
+        }
+      }
+    }
+    records.sort((a, b) => a.datetime.localeCompare(b.datetime));
+    return records;
+  }
 }
 
 module.exports = new DataLoader();
+

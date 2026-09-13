@@ -332,6 +332,29 @@ function formatAcwrReport(acwrData) {
   return msg;
 }
 
+function formatWeightReport(weightData) {
+  if (!weightData) {
+    return '❌ No hay registros de peso disponibles en la carpeta de Health Sync.';
+  }
+
+  let msg = `⚖️ *MONITOR DE PESO Y COMPOSICIÓN CORPORAL*\n\n`;
+  msg += `📅 *Fecha de registro:* ${weightData.datetime}\n`;
+  msg += `⚖️ *Peso Corporal:* *${weightData.weightKg} kg*\n`;
+  if (weightData.bodyFatPct > 0) {
+    msg += `📉 *Grasa Corporal:* *${weightData.bodyFatPct}%*\n`;
+  }
+  if (weightData.muscleMassKg > 0) {
+    msg += `💪 *Masa Muscular:* *${weightData.muscleMassKg} kg*\n`;
+  }
+  if (weightData.waterPct > 0) {
+    msg += `💧 *Agua Corporal:* *${weightData.waterPct}%*\n`;
+  }
+  if (weightData.bmrCalories > 0) {
+    msg += `🔥 *Metabolismo Basal (BMR):* *${weightData.bmrCalories} kcal*\n`;
+  }
+  return msg;
+}
+
 module.exports = {
   renderProgressBar,
   formatSleepSummary,
@@ -343,8 +366,10 @@ module.exports = {
   formatAutonomicReport,
   formatBiologicalAgeReport,
   formatAcwrReport,
+  formatWeightReport,
   convertMarkdownTables,
   cleanTelegramMarkdown,
   splitMessage
 };
+
 
