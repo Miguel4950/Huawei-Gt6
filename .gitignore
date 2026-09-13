@@ -1,0 +1,21 @@
+# Dependencias de Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# 🚨 SEGURIDAD CRÍTICA: Credenciales y Claves (NUNCA subir a GitHub)
+vertex_key*.json
+.env
+.env.local
+.env.*.local
+
+# Datos personales biométricos (mantener privados)
+health_data/
+*.fit
+*.tcx
+
+# Logs y temporales
+*.log
+.system_generated/
+scratch/

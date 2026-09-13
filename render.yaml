@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: analista-bot-salud
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node index.js
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: GOOGLE_CLOUD_PROJECT
+        value: inteligencia-508502
+      - key: GOOGLE_CLOUD_LOCATION
+        value: global
+      - key: GEMINI_MODEL_ID
+        value: gemini-3.8-flash
+      - key: THINKING_LEVEL
+        value: MEDIUM

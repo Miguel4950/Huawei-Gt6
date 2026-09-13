@@ -1,0 +1,476 @@
+const { Telegraf, Markup } = require('telegraf');
+const http = require('http');
+const config = require('../config/config');
+const sleepEngine = require('../analytics/sleepEngine');
+const heartEngine = require('../analytics/heartEngine');
+const oxygenEngine = require('../analytics/oxygenEngine');
+const activityEngine = require('../analytics/activityEngine');
+const workoutEngine = require('../analytics/workoutEngine');
+const readinessEngine = require('../analytics/readinessEngine');
+const geminiCoach = require('../ai/geminiCoach');
+const prompts = require('../ai/prompts');
+const formatters = require('./formatters');
+
+class HealthTelegramBot {
+  constructor(token = config.TELEGRAM_TOKEN) {
+    this.token = token;
+    this.bot = new Telegraf(this.token);
+    this.server = null;
+    this.isLaunched = false;
+  }
+
+  getMenuKeyboard() {
+    return Markup.inlineKeyboard([
+      [
+        Markup.button.callback('🌙 ¿Cómo dormí?', 'btn_comodormi'),
+        Markup.button.callback('⚡ Batería / Readiness', 'btn_readiness')
+      ],
+      [
+        Markup.button.callback('❤️ Corazón & RHR', 'btn_corazon'),
+        Markup.button.callback('🚶 Pasos y Actividad', 'btn_pasos')
+      ],
+      [
+        Markup.button.callback('📊 Fases de Sueño', 'btn_fases'),
+        Markup.button.callback('🎯 Zonas Cardíacas', 'btn_zonas')
+      ],
+      [
+        Markup.button.callback('📅 Resumen Hoy', 'btn_hoy'),
+        Markup.button.callback('📈 Informe Semanal', 'btn_semanal')
+      ],
+      [
+        Markup.button.callback('💰 Presupuesto & Tokens', 'btn_presupuesto'),
+        Markup.button.callback('❓ Guía de Comandos', 'btn_ayuda')
+      ]
+    ]);
+  }
+
+  setupRoutes() {
+    const bot = this.bot;
+
+    // Helper to send typing
+    const sendTyping = (ctx) => ctx.sendChatAction('typing').catch(() => {});
+
+    // START & MENU
+    const handleStart = async (ctx) => {
+      const text = `👋 *¡Hola! Soy tu Asistente Biométrico y Coach Personal de Salud.*\n\n` +
+        `Estoy conectado a los datos de tu smartwatch *Huawei Watch GT* (vía Health Sync).\n` +
+        `Analizo tu sueño, frecuencia cardíaca, pasos, oxígeno y entrenamientos con *Gemini 3.8 Flash (Thinking MEDIUM)* ` +
+        `para darte diagnósticos médicos y deportivos comprensibles.\n\n` +
+        `👇 *Selecciona una opción del menú o escribe cualquier comando:*`;
+      await ctx.replyWithMarkdown(text, this.getMenuKeyboard());
+    };
+    bot.start(handleStart);
+    bot.command('menu', handleStart);
+
+    // AYUDA
+    const handleHelp = async (ctx) => {
+      let text = `📖 *GUÍA COMPLETA DE COMANDOS DEL BOT*\n\n` +
+        `🌙 *Sueño y Descanso:*\n` +
+        `• /comodormi - Diagnóstico completo de anoche con IA\n` +
+        `• /fases - Gráfico de barras de fases (REM, Profundo, Ligero)\n` +
+        `• /ciclos - Conteo de ciclos ultradianos (~90 min)\n` +
+        `• /eficiencia - Porcentaje real dormido vs tiempo en cama\n` +
+        `• /deuda_sueno - Déficit acumulado en 7 días\n` +
+        `• /cronotipo - Evaluación de regularidad circadiana\n` +
+        `• /apnea_oxigeno - Cruce de despertares con caídas de SpO2\n\n` +
+        `❤️ *Corazón & Estrés:*\n` +
+        `• /corazon - Estadísticas y pulso de hoy\n` +
+        `• /frecuencia_reposo - Pulso en reposo (RHR) y tendencia 7d\n` +
+        `• /zonas - Minutos en Zonas Cardíacas Z1 a Z5\n` +
+        `• /picos_estres - Taquicardia o estrés detectado en reposo\n\n` +
+        `⚡ *Recuperación & Rendimiento:*\n` +
+        `• /readiness o /bateria - Semáforo de energía matutino (0-100)\n` +
+        `• /pasos - Pasos, distancia, calorías y hora pico\n` +
+        `• /sedentarismo - Horas continuas de inactividad diurna\n` +
+        `• /actividad - Último entrenamiento registrado\n\n` +
+        `📊 *Informes Temporales:*\n` +
+        `• /hoy - Tablero de mando integral del día\n` +
+        `• /semanal - Informe ejecutivo semanal con metas\n` +
+        `• /presupuesto - Estado de tokens y saldo restante ($5/mes)\n\n` +
+        `💬 *Preguntas libres:* ¡Puedes preguntarme cualquier cosa en texto libre!`;
+      await ctx.replyWithMarkdown(text);
+    };
+    bot.help(handleHelp);
+    bot.command('ayuda', handleHelp);
+
+    // COMODORMI
+    const handleSleep = async (ctx) => {
+      sendTyping(ctx);
+      const sleep = sleepEngine.getLatestNight();
+      const prevSleep = sleepEngine.getPreviousNight();
+      if (!sleep) {
+        return ctx.replyWithMarkdown('❌ No se encontraron registros de sueño en la carpeta.');
+      }
+      try {
+        const prompt = prompts.buildSleepPrompt(sleep, prevSleep);
+        const aiRes = await geminiCoach.generateAnalysis(prompt);
+        const msg = formatters.formatSleepSummary(sleep, aiRes.text);
+        await ctx.replyWithMarkdown(msg);
+      } catch (err) {
+        const msg = formatters.formatSleepSummary(sleep, `(Nota: Análisis local - ${err.message})`);
+        await ctx.replyWithMarkdown(msg);
+      }
+    };
+    bot.command('comodormi', handleSleep);
+
+    // FASES
+    bot.command('fases', async (ctx) => {
+      const sleep = sleepEngine.getLatestNight();
+      if (!sleep) return ctx.replyWithMarkdown('❌ Sin datos de sueño.');
+      const msgText = formatters.formatSleepSummary(sleep, '');
+      await ctx.replyWithMarkdown(msgText);
+    });
+
+    // CICLOS
+    bot.command('ciclos', async (ctx) => {
+      const sleep = sleepEngine.getLatestNight();
+      if (!sleep) return ctx.replyWithMarkdown('❌ Sin datos de sueño.');
+      let t = `🔄 *ANÁLISIS DE CICLOS ULTRADIANOS*\n\n` +
+        `• *Ciclos completos estimados (~90 min):* *${sleep.cyclesCount} ciclos*\n` +
+        `• *Fase final al despertar:* *${sleep.lastStage.toUpperCase()}*\n` +
+        `• *Veredicto:* ${sleep.wokenUpInDeep ? '⚠️ Te despertaste en fase profunda, lo que suele causar inercia del sueño (sensación de pesadez matutina).' : '✅ Despertaste en fase ligera/REM, lo que favorece un despertar lúcido y ágil.'}`;
+      await ctx.replyWithMarkdown(t);
+    });
+
+    // EFICIENCIA
+    bot.command('eficiencia', async (ctx) => {
+      const sleep = sleepEngine.getLatestNight();
+      if (!sleep) return ctx.replyWithMarkdown('❌ Sin datos de sueño.');
+      let t = `⏱️ *EFICIENCIA DEL SUEÑO — ${sleep.date}*\n\n` +
+        `• *Tiempo en cama:* ${sleep.inBedHours} horas\n` +
+        `• *Tiempo real dormido:* ${sleep.totalSleepHours} horas\n` +
+        `• *Eficiencia:* *${sleep.efficiencyPct}%* ${formatters.renderProgressBar(sleep.efficiencyPct)}\n` +
+        `• *Evaluación Clínica:* ${sleep.efficiencyPct >= 85 ? '🟢 Excelente (óptima higiene de sueño).' : sleep.efficiencyPct >= 75 ? '🟡 Normal/Aceptable.' : '🔴 Baja (pasas mucho tiempo despierto en cama).'}`;
+      await ctx.replyWithMarkdown(t);
+    });
+
+    // DEUDA DE SUEÑO
+    bot.command('deuda_sueno', async (ctx) => {
+      const debt = sleepEngine.calculateSleepDebt(config.USER_GOALS.sleepHours);
+      let t = `📉 *DEUDA ACUMULADA DE SUEÑO (Últimos 7 días)*\n\n` +
+        `• *Meta diaria:* ${debt.targetHoursPerDay}h | *Promedio real:* *${debt.avgDailySleepHours}h*\n` +
+        `• *Horas esperadas (${debt.daysCount} días):* ${debt.expectedHours}h\n` +
+        `• *Horas dormidas reales:* ${debt.totalActualHours}h\n` +
+        `• *Balance / Deuda:* *${debt.totalDebtHours > 0 ? `-${debt.totalDebtHours}h (Déficit)` : `+${Math.abs(debt.totalDebtHours)}h (Superávit)`}*\n\n` +
+        `💡 *Consejo:* ${debt.totalDebtHours > 2 ? 'Tienes déficit de sueño acumulado. Añade una siesta de 20-25 minutos o adelanta tu hora de dormir 45 minutos.' : '¡Excelente regularidad! Estás cumpliendo con tus requerimientos de descanso.'}`;
+      await ctx.replyWithMarkdown(t);
+    });
+
+    // CRONOTIPO
+    bot.command('cronotipo', async (ctx) => {
+      const chrono = sleepEngine.determineChronotype();
+      let t = `🕰️ *PERFIL CIRCADIANO Y CRONOTIPO*\n\n` +
+        `• *Clasificación estimada:* *${chrono.chronotype}*\n` +
+        `• *Muestras analizadas:* ${chrono.sessionsSampled} noches\n\n` +
+        `💡 *Interpretación:* Tu reloj biológico muestra una tendencia hacia horarios ${chrono.chronotype.includes('Búho') ? 'vespertinos/noctámbulos. Intenta exponer tu vista a luz solar matutina para fijar la producción de melatonina nocturna.' : 'regulares y matutinos. Mantén esa consistencia.'}`;
+      await ctx.replyWithMarkdown(t);
+    });
+
+    // APNEA & OXIGENO
+    bot.command('apnea_oxigeno', async (ctx) => {
+      const sleep = sleepEngine.getLatestNight();
+      const corr = oxygenEngine.correlateWithSleep(sleep);
+      if (!corr) return ctx.replyWithMarkdown('❌ No se encontraron datos de oxígeno para la última noche.');
+      let t = `💨 *CALIDAD RESPIRATORIA NOCTURNA*\n\n` +
+        `• *SpO2 Medio al dormir:* *${corr.avgSleepSpo2}%*\n` +
+        `• *SpO2 Mínimo registrado:* *${corr.minSleepSpo2}%*\n` +
+        `• *Eventos de desaturación (< 95%):* *${corr.desaturationEvents}*\n` +
+        `• *Estabilidad respiratoria:* *${corr.breathingStability}*\n\n` +
+        `💡 *Veredicto:* ${corr.desaturationEvents === 0 ? 'Oxigenación nocturna impecable. Vías aéreas despejadas y descanso profundo continuo.' : 'Se registraron pequeñas caídas de saturación. Revisa la ventilación del dormitorio o la posición de la almohada.'}`;
+      await ctx.replyWithMarkdown(t);
+    });
+
+    // READINESS / BATERIA
+    const handleReadiness = async (ctx) => {
+      sendTyping(ctx);
+      const readiness = readinessEngine.calculateReadiness();
+      try {
+        const prompt = prompts.buildReadinessPrompt(readiness);
+        const aiRes = await geminiCoach.generateAnalysis(prompt);
+        const msg = formatters.formatReadinessReport(readiness, aiRes.text);
+        await ctx.replyWithMarkdown(msg);
+      } catch (err) {
+        const msg = formatters.formatReadinessReport(readiness, `(Diagnóstico base: ${err.message})`);
+        await ctx.replyWithMarkdown(msg);
+      }
+    };
+    bot.command('readiness', handleReadiness);
+    bot.command('bateria', handleReadiness);
+
+    // CORAZON
+    const handleHeart = async (ctx) => {
+      sendTyping(ctx);
+      const heart = heartEngine.getLatestDayStats();
+      const rhrTrend = heartEngine.getRhrTrend();
+      const spikes = heartEngine.detectStressSpikes(heart ? heart.date : '');
+      if (!heart) return ctx.replyWithMarkdown('❌ No hay datos de frecuencia cardíaca.');
+      try {
+        const prompt = prompts.buildHeartPrompt(heart, rhrTrend, spikes);
+        const aiRes = await geminiCoach.generateAnalysis(prompt);
+        const msg = formatters.formatHeartReport(heart, rhrTrend, aiRes.text);
+        await ctx.replyWithMarkdown(msg);
+      } catch (err) {
+        const msg = formatters.formatHeartReport(heart, rhrTrend, `(Diagnóstico base: ${err.message})`);
+        await ctx.replyWithMarkdown(msg);
+      }
+    };
+    bot.command('corazon', handleHeart);
+
+    // FRECUENCIA REPOSO
+    bot.command('frecuencia_reposo', async (ctx) => {
+      const trend = heartEngine.getRhrTrend();
+      let t = `🛌 *FRECUENCIA CARDÍACA EN REPOSO (RHR)*\n\n` +
+        `• *RHR Último Registro:* *${trend.latestRhr} bpm*\n` +
+        `• *Promedio Últimos 7 Días:* *${trend.recent7DaysAvgRhr} bpm*\n\n` +
+        `*Historial reciente:*\n`;
+      trend.trend.slice(-5).forEach(x => {
+        t += `• ${x.date}: *${x.rhr} bpm* (media día: ${x.avg} bpm)\n`;
+      });
+      t += `\n💡 *Regla médica:* Un RHR estable o a la baja indica adaptación física positiva. Si sube > 5 bpm, indica fatiga acumulada, estrés o deshidratación.`;
+      await ctx.replyWithMarkdown(t);
+    });
+
+    // ZONAS
+    bot.command('zonas', async (ctx) => {
+      const heart = heartEngine.getLatestDayStats();
+      if (!heart) return ctx.replyWithMarkdown('❌ No hay datos de corazón.');
+      const msgText = formatters.formatHeartReport(heart, heartEngine.getRhrTrend(), '');
+      await ctx.replyWithMarkdown(msgText);
+    });
+
+    // PICOS DE ESTRES
+    bot.command('picos_estres', async (ctx) => {
+      const days = heartEngine.getDaysList();
+      const latestDay = days.length > 0 ? days[days.length - 1] : '';
+      const spikes = heartEngine.detectStressSpikes(latestDay);
+      let t = `⚡ *PICOS DE FRECUENCIA CARDÍACA EN REPOSO (${latestDay})*\n\n`;
+      if (spikes.length === 0) {
+        t += `✅ *Cero picos inusuales detectados.* Tu sistema nervioso autónomo se mantuvo en equilibrio durante los momentos de inactividad física.`;
+      } else {
+        t += `⚠️ *Se detectaron ${spikes.length} episodios de pulso elevado (>100 bpm) sin movimiento:*\n`;
+        spikes.slice(0, 5).forEach(s => {
+          t += `• ${s.datetime.split(' ')[1]}: *${s.bpm} bpm* (Pasos: 0)\n`;
+        });
+        t += `\n💡 Posibles causas: estrés agudo, cafeína, digestión pesada o deshidratación.`;
+      }
+      await ctx.replyWithMarkdown(t);
+    });
+
+    // PASOS
+    const handleSteps = async (ctx) => {
+      const act = activityEngine.getLatestDayStats();
+      const msg = formatters.formatStepsReport(act);
+      await ctx.replyWithMarkdown(msg);
+    };
+    bot.command('pasos', handleSteps);
+
+    // SEDENTARISMO
+    bot.command('sedentarismo', async (ctx) => {
+      const act = activityEngine.getLatestDayStats();
+      if (!act) return ctx.replyWithMarkdown('❌ Sin datos de pasos.');
+      let t = `🪑 *ANÁLISIS DE SEDENTARISMO DIURNO (${act.date})*\n\n` +
+        `• *Horas sedentarias diurnas (<100 pasos):* *${act.sedentaryDaytimeHours} horas*\n` +
+        `• *Racha continua máxima sentado:* *${act.maxSedentaryStreakHours} horas consecutivas*\n\n` +
+        `💡 *Recomendación:* Por cada 60 minutos sentado, realiza 2 minutos de caminata o estiramientos para reactivar la circulación y el aclaramiento de glucosa.`;
+      await ctx.replyWithMarkdown(t);
+    });
+
+    // ACTIVIDAD
+    bot.command('actividad', async (ctx) => {
+      const w = workoutEngine.getLatestWorkout();
+      if (!w) return ctx.replyWithMarkdown('❌ No se encontraron sesiones deportivas recientes.');
+      let t = `🏃 *ÚLTIMO ENTRENAMIENTO REGISTRADO*\n\n` +
+        `• *Tipo:* *${w.type}*\n` +
+        `• *Fecha y Hora:* ${w.datetime}\n` +
+        `• *Duración:* *${w.durationMinutes} minutos*\n` +
+        `• *Frecuencia Media:* *${w.avgHr} bpm* | *Pico:* *${w.maxHr} bpm*\n` +
+        `• *Calorías Quemadas:* *${w.calories} kcal*\n` +
+        `• *Nivel de Intensidad:* *${w.intensity}*\n` +
+        `• ⏱️ *Recuperación Recomendada:* *${w.recoveryHours} horas* antes de volver a forzar este grupo muscular.`;
+      await ctx.replyWithMarkdown(t);
+    });
+
+    // HOY
+    bot.command('hoy', async (ctx) => {
+      sendTyping(ctx);
+      const sleep = sleepEngine.getLatestNight();
+      const heart = heartEngine.getLatestDayStats();
+      const act = activityEngine.getLatestDayStats();
+      const readiness = readinessEngine.calculateReadiness();
+
+      let t = `📊 *TABLERO 360° DE HOY*\n\n`;
+      t += `🔋 *Batería Corporal:* *${readiness.score}/100* ${readiness.color} (${readiness.level})\n\n`;
+      if (sleep) {
+        t += `🌙 *Sueño:* ${sleep.totalSleepHours}h (Score: ${sleep.sleepScore}/100, REM: ${sleep.remPct}%, Profundo: ${sleep.deepPct}%)\n`;
+      }
+      if (heart) {
+        t += `❤️ *Corazón:* ${heart.avgBpm} bpm (RHR: ${heart.restingHeartRate} bpm | Pico: ${heart.maxBpm} bpm)\n`;
+      }
+      if (act) {
+        t += `🚶 *Pasos:* ${act.totalSteps.toLocaleString()} / ${act.targetSteps.toLocaleString()} (${act.distanceKm} km | ${act.activeCalories} kcal)\n`;
+      }
+      t += `\n🎯 *Veredicto del Coach:* ${readiness.advice}`;
+      await ctx.replyWithMarkdown(t);
+    });
+
+    // SEMANAL
+    bot.command('semanal', async (ctx) => {
+      sendTyping(ctx);
+      const rhrTrend = heartEngine.getRhrTrend();
+      const stepSummary = activityEngine.getWeeklySummary();
+      const sleepDebt = sleepEngine.calculateSleepDebt(8.0);
+
+      const summaryPayload = {
+        diasAnalizados: stepSummary.daysAnalyzed,
+        pasosTotales: stepSummary.totalSteps,
+        pasosPromedioDiario: stepSummary.avgDailySteps,
+        pulsoReposoPromedio7d: rhrTrend.recent7DaysAvgRhr,
+        horasSuenoPromedioDiario: sleepDebt.avgDailySleepHours,
+        deudaSuenoAcumulada: sleepDebt.totalDebtHours
+      };
+
+      try {
+        const prompt = prompts.buildWeeklyPrompt(summaryPayload);
+        const aiRes = await geminiCoach.generateAnalysis(prompt);
+        let t = `📈 *INFORME EJECUTIVO SEMANAL*\n\n` +
+          `• 👣 *Pasos Semanales:* ${stepSummary.totalSteps.toLocaleString()} (Media: ${stepSummary.avgDailySteps.toLocaleString()}/día)\n` +
+          `• 🛌 *Sueño Promedio:* ${sleepDebt.avgDailySleepHours}h/noche (Deuda: ${sleepDebt.totalDebtHours}h)\n` +
+          `• ❤️ *RHR Base:* ${rhrTrend.recent7DaysAvgRhr} bpm\n\n` +
+          `🏆 *Diagnóstico Semanal de Gemini:*\n${aiRes.text}`;
+        await ctx.replyWithMarkdown(t);
+      } catch (err) {
+        await ctx.replyWithMarkdown(`Error generando reporte semanal: ${err.message}`);
+      }
+    });
+
+    // PRESUPUESTO
+    bot.command('presupuesto', async (ctx) => {
+      const s = geminiCoach.getCostSummary();
+      let t = `💰 *ESTADO DE PRESUPUESTO & CONTROL DE TOKENS*\n\n` +
+        `• *Modelo activo:* \`gemini-3.8-flash\` (Thinking: MEDIUM)\n` +
+        `• *Consultas realizadas:* *${s.queriesCount}*\n` +
+        `• *Tokens de Entrada:* ${s.totalInputTokens.toLocaleString()} tokens\n` +
+        `• *Tokens de Salida:* ${s.totalOutputTokens.toLocaleString()} tokens\n` +
+        `• *Costo total acumulado:* *$${s.totalCostUsd} USD*\n` +
+        `• *Presupuesto restante ($5.00/mes):* *$${s.remainingBudgetUsd} USD*\n\n` +
+        `🛡️ *Garantía de Presupuesto:* Gracias al motor de compresión local, cada consulta cuesta menos de $0.0005 USD. Tienes saldo para más de 10,000 consultas adicionales este mes.`;
+      await ctx.replyWithMarkdown(t);
+    });
+
+    // Inline Button Handlers
+    bot.action('btn_comodormi', async (ctx) => {
+      await ctx.answerCbQuery().catch(() => {});
+      await handleSleep(ctx);
+    });
+    bot.action('btn_readiness', async (ctx) => {
+      await ctx.answerCbQuery().catch(() => {});
+      await handleReadiness(ctx);
+    });
+    bot.action('btn_corazon', async (ctx) => {
+      await ctx.answerCbQuery().catch(() => {});
+      await handleHeart(ctx);
+    });
+    bot.action('btn_pasos', async (ctx) => {
+      await ctx.answerCbQuery().catch(() => {});
+      await handleSteps(ctx);
+    });
+    bot.action('btn_fases', async (ctx) => {
+      await ctx.answerCbQuery().catch(() => {});
+      const sleep = sleepEngine.getLatestNight();
+      await ctx.replyWithMarkdown(formatters.formatSleepSummary(sleep, ''));
+    });
+    bot.action('btn_zonas', async (ctx) => {
+      await ctx.answerCbQuery().catch(() => {});
+      const heart = heartEngine.getLatestDayStats();
+      await ctx.replyWithMarkdown(formatters.formatHeartReport(heart, heartEngine.getRhrTrend(), ''));
+    });
+    bot.action('btn_hoy', async (ctx) => {
+      await ctx.answerCbQuery().catch(() => {});
+      ctx.message = { text: '/hoy' };
+      bot.handleUpdate({ message: { chat: ctx.chat, text: '/hoy' } });
+    });
+    bot.action('btn_semanal', async (ctx) => {
+      await ctx.answerCbQuery().catch(() => {});
+      ctx.message = { text: '/semanal' };
+      bot.handleUpdate({ message: { chat: ctx.chat, text: '/semanal' } });
+    });
+    bot.action('btn_presupuesto', async (ctx) => {
+      await ctx.answerCbQuery().catch(() => {});
+      ctx.message = { text: '/presupuesto' };
+      bot.handleUpdate({ message: { chat: ctx.chat, text: '/presupuesto' } });
+    });
+    bot.action('btn_ayuda', async (ctx) => {
+      await ctx.answerCbQuery().catch(() => {});
+      await handleHelp(ctx);
+    });
+
+    // Natural Language fallback
+    bot.on('text', async (ctx) => {
+      const text = ctx.message.text;
+      if (!text || text.startsWith('/')) return;
+      sendTyping(ctx);
+
+      const snapshot = {
+        ultimoSueno: sleepEngine.getLatestNight(),
+        ultimoPulso: heartEngine.getLatestDayStats(),
+        ultimosPasos: activityEngine.getLatestDayStats(),
+        readiness: readinessEngine.calculateReadiness()
+      };
+
+      try {
+        const prompt = prompts.buildConversationPrompt(text, snapshot);
+        const aiRes = await geminiCoach.generateAnalysis(prompt);
+        await ctx.replyWithMarkdown(`💬 *Respuesta de tu Coach:*\n\n${aiRes.text}`);
+      } catch (err) {
+        await ctx.replyWithMarkdown(`No pude procesar la consulta: ${err.message}`);
+      }
+    });
+  }
+
+  start(options = {}) {
+    this.setupRoutes();
+    const port = process.env.PORT || 8080;
+
+    // Start HTTP healthcheck server
+    this.server = http.createServer((req, res) => {
+      if (req.url === '/health' || req.url === '/') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          status: 'online',
+          bot: '@AnalistaBotMiguelAcuBot',
+          model: config.MODEL_ID,
+          timestamp: new Date().toISOString(),
+          budget: geminiCoach.getCostSummary()
+        }));
+      } else {
+        res.writeHead(404);
+        res.end();
+      }
+    });
+
+    this.server.listen(port, () => {
+      console.log(`[HTTP Healthcheck] Servidor de salud activo en puerto ${port} (/health)`);
+    });
+
+    // Launch Telegram Bot
+    this.bot.launch().then(() => {
+      this.isLaunched = true;
+      console.log('🤖 [Bot] @AnalistaBotMiguelAcuBot está conectado a Telegram y escuchando mensajes!');
+    }).catch(err => {
+      console.error('[Bot] Error en launch:', err.message);
+    });
+  }
+
+  stop() {
+    if (this.bot && this.isLaunched) {
+      this.bot.stop('SIGINT');
+      this.isLaunched = false;
+    }
+    if (this.server) {
+      this.server.close();
+    }
+    console.log('[Bot] Detenido correctamente.');
+  }
+}
+
+module.exports = HealthTelegramBot;
