@@ -7,9 +7,25 @@ const HEALTH_DATA_DIR = process.env.HEALTH_DATA_DIR
   ? path.resolve(process.env.HEALTH_DATA_DIR) 
   : path.join(ROOT_DIR, 'health_data');
 
-const KEY_FILE_PATH = process.env.GOOGLE_APPLICATION_CREDENTIALS 
-  ? path.resolve(process.env.GOOGLE_APPLICATION_CREDENTIALS) 
-  : path.join(ROOT_DIR, 'vertex_key.json');
+// Detect credentials across local development, Docker, and Render Secret Files
+let resolvedKeyPath = path.join(ROOT_DIR, 'vertex_key.json');
+if (process.env.GOOGLE_APPLICATION_CREDENTIALS && fs.existsSync(process.env.GOOGLE_APPLICATION_CREDENTIALS)) {
+  resolvedKeyPath = path.resolve(process.env.GOOGLE_APPLICATION_CREDENTIALS);
+} else if (fs.existsSync(path.join(ROOT_DIR, 'vertex_key.json'))) {
+  resolvedKeyPath = path.join(ROOT_DIR, 'vertex_key.json');
+} else if (fs.existsSync('/etc/secrets/vertex_key.json')) {
+  resolvedKeyPath = '/etc/secrets/vertex_key.json';
+} else if (process.env.VERTEX_KEY_JSON || process.env.GOOGLE_CREDENTIALS_JSON) {
+  try {
+    const rawJson = process.env.VERTEX_KEY_JSON || process.env.GOOGLE_CREDENTIALS_JSON;
+    fs.writeFileSync(path.join(ROOT_DIR, 'vertex_key.json'), rawJson, 'utf8');
+    resolvedKeyPath = path.join(ROOT_DIR, 'vertex_key.json');
+  } catch (e) {
+    console.warn('[Config] Error escribiendo credenciales desde variable de entorno:', e.message);
+  }
+}
+
+const KEY_FILE_PATH = resolvedKeyPath;
 
 let projectId = process.env.GOOGLE_CLOUD_PROJECT || 'inteligencia-508502';
 if (fs.existsSync(KEY_FILE_PATH)) {

@@ -30,42 +30,112 @@ class DataLoader {
   }
 
   getFolderPath(folderName) {
-    // Search case-insensitive or accented folder names
     if (!fs.existsSync(this.dataDir)) {
       return null;
     }
     const entries = fs.readdirSync(this.dataDir);
-    const match = entries.find(e => 
-      e.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '') === 
-      folderName.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    // 1. Exact normalized match (e.g. "Health Sync Actividades")
+    const normTarget = folderName.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    let match = entries.find(e => 
+      e.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '') === normTarget
     );
+    if (match) return path.join(this.dataDir, match);
+
+    // 2. Keyword fallback (e.g. "sueño", "actividad", "pasos", "cardiaca", "oxigeno", "peso")
+    const keywords = normTarget.replace('health sync', '').trim().split(/\s+/).filter(Boolean);
+    match = entries.find(e => {
+      const normE = e.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      return keywords.some(k => normE.includes(k));
+    });
     return match ? path.join(this.dataDir, match) : null;
   }
 
   listFiles(folderName) {
-    const folderPath = this.getFolderPath(folderName);
-    if (!folderPath || !fs.existsSync(folderPath)) return [];
-    return fs.readdirSync(folderPath).map(file => ({
-      name: file,
-      fullPath: path.join(folderPath, file),
-      stat: fs.statSync(path.join(folderPath, file))
-    }));
+    const list = [];
+    const seenPaths = new Set();
+
+    const addFilesFromDir = (dirPath) => {
+      if (!dirPath || !fs.existsSync(dirPath)) return;
+      try {
+        const entries = fs.readdirSync(dirPath);
+        for (const file of entries) {
+          const fullPath = path.join(dirPath, file);
+          try {
+            const stat = fs.statSync(fullPath);
+            if (stat.isFile() && !seenPaths.has(fullPath)) {
+              seenPaths.add(fullPath);
+              list.push({ name: file, fullPath, stat });
+            }
+          } catch (e) {}
+        }
+      } catch (e) {}
+    };
+
+    const targetFolder = this.getFolderPath(folderName);
+    if (targetFolder) {
+      addFilesFromDir(targetFolder);
+    }
+
+    // Also check root of dataDir for matching files (e.g. if files are placed directly in dataDir)
+    if (fs.existsSync(this.dataDir)) {
+      try {
+        const rootEntries = fs.readdirSync(this.dataDir);
+        const normTarget = folderName.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        for (const file of rootEntries) {
+          const fullPath = path.join(this.dataDir, file);
+          try {
+            const stat = fs.statSync(fullPath);
+            if (stat.isFile() && !seenPaths.has(fullPath)) {
+              const lowerName = file.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+              const ext = path.extname(file).toLowerCase();
+              let matchesCategory = false;
+
+              if (normTarget.includes('actividad') && (
+                lowerName.includes('walking') || lowerName.includes('running') || lowerName.includes('cycling') ||
+                lowerName.includes('actividad') || lowerName.includes('ejercicio') || lowerName.includes('generic') ||
+                ['.tcx', '.fit', '.gpx', '.kml'].includes(ext)
+              )) {
+                matchesCategory = true;
+              } else if (normTarget.includes('sueno') && (lowerName.includes('sueno') || lowerName.includes('sleep'))) {
+                matchesCategory = true;
+              } else if (normTarget.includes('frecuencia') && (lowerName.includes('frecuencia') || lowerName.includes('cardiaca') || lowerName.includes('heart'))) {
+                matchesCategory = true;
+              } else if (normTarget.includes('paso') && (lowerName.includes('paso') || lowerName.includes('step'))) {
+                matchesCategory = true;
+              } else if (normTarget.includes('oxigeno') && (lowerName.includes('oxigeno') || lowerName.includes('saturacion') || lowerName.includes('spo2'))) {
+                matchesCategory = true;
+              } else if (normTarget.includes('peso') && (lowerName.includes('peso') || lowerName.includes('weight'))) {
+                matchesCategory = true;
+              }
+
+              if (matchesCategory) {
+                seenPaths.add(fullPath);
+                list.push({ name: file, fullPath, stat });
+              }
+            }
+          } catch (e) {}
+        }
+      } catch (e) {}
+    }
+
+    return list;
   }
 
   loadSleepRecords() {
     const files = this.listFiles('Health Sync Sueño');
-    const records = [];
+    const recordsMap = new Map();
     for (const f of files) {
       if (f.name.endsWith('.csv')) {
         const content = fs.readFileSync(f.fullPath, 'utf8');
         const rows = parseCsv(content);
         for (const r of rows) {
-          const rawFecha = r['Fecha'] || r['fecha'];
-          const rawDuration = r['Duración en segundos'] || r['duracion en segundos'] || r['Duracion en segundos'];
-          const rawStage = r['Etapa del sueño'] || r['etapa del sueno'] || r['Etapa del sueno'];
+          const rawFecha = r['Fecha'] || r['fecha'] || r['Date'];
+          const rawDuration = r['Duración en segundos'] || r['duracion en segundos'] || r['Duracion en segundos'] || r['Duration (s)'];
+          const rawStage = r['Etapa del sueño'] || r['etapa del sueno'] || r['Etapa del sueno'] || r['Sleep stage'];
           if (rawFecha && rawDuration && rawStage) {
-            records.push({
-              datetime: rawFecha,
+            const key = rawFecha.trim();
+            recordsMap.set(key, {
+              datetime: key,
               duration: parseInt(rawDuration, 10),
               stage: rawStage.toLowerCase().trim(),
               sourceFile: f.name
@@ -74,26 +144,27 @@ class DataLoader {
         }
       }
     }
-    // Sort chronologically
+    const records = Array.from(recordsMap.values());
     records.sort((a, b) => a.datetime.localeCompare(b.datetime));
     return records;
   }
 
   loadHeartRateRecords() {
     const files = this.listFiles('Health Sync Frecuencia cardíaca');
-    const records = [];
+    const recordsMap = new Map();
     for (const f of files) {
       if (f.name.endsWith('.csv')) {
         const content = fs.readFileSync(f.fullPath, 'utf8');
         const rows = parseCsv(content);
         for (const r of rows) {
-          const rawFecha = r['Fecha'] || r['fecha'];
-          const rawHr = r['Frecuencia cardiaca'] || r['Frecuencia cardíaca'];
+          const rawFecha = r['Fecha'] || r['fecha'] || r['Date'];
+          const rawHr = r['Frecuencia cardiaca'] || r['Frecuencia cardíaca'] || r['frecuencia cardiaca'] || r['Heart rate'];
           if (rawFecha && rawHr) {
             const hr = parseInt(rawHr, 10);
             if (!isNaN(hr) && hr > 30 && hr < 240) {
-              records.push({
-                datetime: rawFecha,
+              const key = rawFecha.trim();
+              recordsMap.set(key, {
+                datetime: key,
                 bpm: hr,
                 sourceFile: f.name
               });
@@ -102,25 +173,27 @@ class DataLoader {
         }
       }
     }
+    const records = Array.from(recordsMap.values());
     records.sort((a, b) => a.datetime.localeCompare(b.datetime));
     return records;
   }
 
   loadOxygenRecords() {
     const files = this.listFiles('Health Sync Saturación de oxígeno');
-    const records = [];
+    const recordsMap = new Map();
     for (const f of files) {
       if (f.name.endsWith('.csv')) {
         const content = fs.readFileSync(f.fullPath, 'utf8');
         const rows = parseCsv(content);
         for (const r of rows) {
-          const rawFecha = r['Fecha'] || r['fecha'];
-          const rawSpo2 = r['Saturación de oxígeno'] || r['Saturacion de oxigeno'];
+          const rawFecha = r['Fecha'] || r['fecha'] || r['Date'];
+          const rawSpo2 = r['Saturación de oxígeno'] || r['Saturacion de oxigeno'] || r['saturacion de oxigeno'] || r['SpO2'];
           if (rawFecha && rawSpo2) {
             const spo2 = parseFloat(rawSpo2);
             if (!isNaN(spo2) && spo2 > 50 && spo2 <= 100) {
-              records.push({
-                datetime: rawFecha,
+              const key = rawFecha.trim();
+              recordsMap.set(key, {
+                datetime: key,
                 spo2: spo2,
                 sourceFile: f.name
               });
@@ -129,25 +202,27 @@ class DataLoader {
         }
       }
     }
+    const records = Array.from(recordsMap.values());
     records.sort((a, b) => a.datetime.localeCompare(b.datetime));
     return records;
   }
 
   loadStepsRecords() {
     const files = this.listFiles('Health Sync Pasos');
-    const records = [];
+    const recordsMap = new Map();
     for (const f of files) {
       if (f.name.endsWith('.csv')) {
         const content = fs.readFileSync(f.fullPath, 'utf8');
         const rows = parseCsv(content);
         for (const r of rows) {
-          const rawFecha = r['Fecha'] || r['fecha'];
-          const rawSteps = r['Pasos'] || r['pasos'];
+          const rawFecha = r['Fecha'] || r['fecha'] || r['Date'];
+          const rawSteps = r['Pasos'] || r['pasos'] || r['Steps'];
           if (rawFecha && rawSteps) {
             const steps = parseInt(rawSteps, 10);
             if (!isNaN(steps)) {
-              records.push({
-                datetime: rawFecha,
+              const key = rawFecha.trim();
+              recordsMap.set(key, {
+                datetime: key,
                 steps: steps,
                 sourceFile: f.name
               });
@@ -156,33 +231,39 @@ class DataLoader {
         }
       }
     }
+    const records = Array.from(recordsMap.values());
     records.sort((a, b) => a.datetime.localeCompare(b.datetime));
     return records;
   }
 
   loadActivityRecords() {
     const files = this.listFiles('Health Sync Actividades');
-    const records = [];
+    const recordsMap = new Map();
     for (const f of files) {
       if (f.name.endsWith('.csv')) {
         const content = fs.readFileSync(f.fullPath, 'utf8');
         const rows = parseCsv(content);
         for (const r of rows) {
-          records.push({
-            type: r['Tipo de actividad'] || 'GENERIC',
-            datetime: r['Fecha'] || '',
-            elapsedSeconds: parseInt(r['Tiempo transcurrido'] || '0', 10),
-            activeSeconds: parseInt(r['Tiempo activo'] || '0', 10),
-            distanceKm: parseFloat(r['Distancia (km)'] || '0'),
-            calories: parseFloat(r['Calorías (kcal)'] || '0'),
-            avgHr: parseInt(r['Frecuencia cardíaca media'] || '0', 10),
-            maxHr: parseInt(r['Frecuencia cardíaca máxima'] || '0', 10),
-            steps: parseInt(r['Pasos'] || '0', 10),
+          const type = r['Tipo de actividad'] || r['tipo de actividad'] || r['Activity type'] || 'GENERIC';
+          const datetime = (r['Fecha'] || r['fecha'] || r['Date'] || '').trim();
+          if (!datetime) continue;
+          const key = `${datetime}_${type}`;
+          recordsMap.set(key, {
+            type,
+            datetime,
+            elapsedSeconds: parseInt(r['Tiempo transcurrido'] || r['tiempo transcurrido'] || r['Elapsed time'] || '0', 10),
+            activeSeconds: parseInt(r['Tiempo activo'] || r['tiempo activo'] || r['Active time'] || '0', 10),
+            distanceKm: parseFloat(r['Distancia (km)'] || r['distancia (km)'] || r['Distancia(km)'] || '0'),
+            calories: parseFloat(r['Calorías (kcal)'] || r['calorías (kcal)'] || r['Calorias (kcal)'] || '0'),
+            avgHr: parseInt(r['Frecuencia cardíaca media'] || r['frecuencia cardíaca media'] || r['Frecuencia cardiaca media'] || '0', 10),
+            maxHr: parseInt(r['Frecuencia cardíaca máxima'] || r['frecuencia cardíaca máxima'] || r['Frecuencia cardiaca maxima'] || '0', 10),
+            steps: parseInt(r['Pasos'] || r['pasos'] || '0', 10),
             sourceFile: f.name
           });
         }
       }
     }
+    const records = Array.from(recordsMap.values());
     records.sort((a, b) => (b.datetime || '').localeCompare(a.datetime || ''));
     return records;
   }

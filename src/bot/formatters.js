@@ -73,6 +73,12 @@ function formatWorkoutReport(workout, aiText = '') {
   if (workout.distanceKm > 0) {
     msg += `📏 *Distancia:* *${workout.distanceKm} km*\n`;
   }
+  if (workout.paceFormatted) {
+    msg += `⏱️ *Ritmo Medio:* *${workout.paceFormatted}*\n`;
+  }
+  if (workout.steps > 0) {
+    msg += `🚶 *Pasos en la Sesión:* *${workout.steps.toLocaleString()} pasos*\n`;
+  }
   msg += `❤️ *Frecuencia Media:* *${workout.avgHr} bpm* | *Pico Máximo:* *${workout.maxHr} bpm*\n`;
   msg += `⚡ *Nivel de Intensidad:* *${workout.intensity}*\n`;
   msg += `📈 *Carga de Entrenamiento (EPOC):* *${workout.trainingLoad} pts*\n\n`;
@@ -373,6 +379,22 @@ function formatWeightReport(weightData) {
   return msg;
 }
 
+function formatOxygenReport(ox) {
+  if (!ox) {
+    return '❌ No hay registros de saturación de oxígeno (SpO2) disponibles en la carpeta de Health Sync.';
+  }
+
+  let msg = `💨 *MONITOR DE SATURACIÓN DE OXÍGENO (SpO2)*\n\n`;
+  msg += `📅 *Fecha:* ${ox.date}\n`;
+  msg += `💨 *SpO2 Promedio del Día:* *${ox.avgSpo2}%*\n`;
+  msg += `📉 *Mínimo Registrado:* *${ox.minSpo2}%* | 📈 *Máximo:* *${ox.maxSpo2}%*\n`;
+  msg += `🌙 *Media Nocturna:* *${ox.nocturnalAvgSpo2}%* | ☀️ *Media Diurna:* *${ox.daytimeAvgSpo2}%*\n`;
+  msg += `⚠️ *Caídas < 95%:* ${ox.dropsBelow95Count} | *Caídas severas < 90%:* ${ox.dropsBelow90Count}\n`;
+  msg += `🩺 *Riesgo Respiratorio:* *${ox.respiratoryRisk === 'NORMAL' ? '🟢 Normal (Vías despejadas)' : ox.respiratoryRisk === 'MODERADO' ? '🟡 Moderado (Monitorear)' : '🔴 Alto'}*\n\n`;
+  msg += `💡 *Criterio Clínico:* En una persona de 20 años sana, niveles diurnos de 95% a 99% son óptimos.`;
+  return msg;
+}
+
 module.exports = {
   renderProgressBar,
   formatSleepSummary,
@@ -385,6 +407,7 @@ module.exports = {
   formatBiologicalAgeReport,
   formatAcwrReport,
   formatWeightReport,
+  formatOxygenReport,
   convertMarkdownTables,
   cleanTelegramMarkdown,
   splitMessage

@@ -57,18 +57,21 @@ class HealthTelegramBot {
       ],
       [
         Markup.button.callback('🚶 Pasos y Actividad', 'btn_pasos'),
-        Markup.button.callback('⚖️ Peso & Forma', 'btn_peso')
+        Markup.button.callback('💨 Oxígeno SpO2', 'btn_oxigeno')
       ],
       [
-        Markup.button.callback('📅 Resumen Hoy', 'btn_hoy'),
-        Markup.button.callback('📈 Informe Semanal', 'btn_semanal')
+        Markup.button.callback('⚖️ Peso & Forma', 'btn_peso'),
+        Markup.button.callback('📅 Resumen Hoy', 'btn_hoy')
       ],
       [
-        Markup.button.callback('📊 Fases de Sueño', 'btn_fases'),
-        Markup.button.callback('🔄 Sincronizar Drive', 'btn_sync')
+        Markup.button.callback('📈 Informe Semanal', 'btn_semanal'),
+        Markup.button.callback('📊 Fases de Sueño', 'btn_fases')
       ],
       [
-        Markup.button.callback('💰 Tokens & Costo', 'btn_presupuesto'),
+        Markup.button.callback('🔄 Sincronizar Drive', 'btn_sync'),
+        Markup.button.callback('💰 Tokens & Costo', 'btn_presupuesto')
+      ],
+      [
         Markup.button.callback('📋 Ver Lista (/lista)', 'btn_lista')
       ]
     ]);
@@ -79,6 +82,7 @@ class HealthTelegramBot {
       await this.bot.telegram.setMyCommands([
         { command: 'menu', description: '📱 Menú interactivo con botones táctiles' },
         { command: 'lista', description: '📋 Lista completa y guía de todos los comandos' },
+        { command: 'actividad', description: '🏃 Última caminata/entrenamiento con GPS y ritmo' },
         { command: 'comodormi', description: '🌙 Diagnóstico de sueño (anoche + semana + mes)' },
         { command: 'hoy', description: '📊 Tablero biométrico 360° en tiempo real' },
         { command: 'bateria', description: '⚡ Batería corporal y preparación física (0-100)' },
@@ -88,6 +92,7 @@ class HealthTelegramBot {
         { command: 'sistema_autonomo', description: '🧠 Tono vagal, estrés cardíaco y dip nocturno' },
         { command: 'edad_biologica', description: '🧬 Edad biológica vs cronológica' },
         { command: 'corazon', description: '❤️ Frecuencia cardíaca y RHR de 7 días' },
+        { command: 'oxigeno', description: '💨 Saturación de oxígeno SpO2 y riesgo respiratorio' },
         { command: 'pasos', description: '🚶 Pasos diarios, distancia y calorías' },
         { command: 'peso', description: '⚖️ Peso y composición corporal' },
         { command: 'semanal', description: '🏆 Informe ejecutivo de los últimos 7 días' },
@@ -198,6 +203,7 @@ class HealthTelegramBot {
         `• /eficiencia — Porcentaje real dormido vs tiempo en cama\n` +
         `• /deuda_sueno — Horas de déficit acumuladas en los últimos 7 días\n` +
         `• /cronotipo — Identificación de tu reloj biológico (Alondra / Búho)\n` +
+        `• /oxigeno (o /spo2) — Saturación de oxígeno (SpO2) diurna, nocturna y riesgo respiratorio\n` +
         `• /apnea_oxigeno — Despertares nocturnos cruzados con caídas de SpO2\n\n` +
         `🚶 *5. Pasos, Peso & Actividad Diaria:*\n` +
         `• /pasos — Pasos caminados, kilómetros y calorías activas\n` +
@@ -214,11 +220,20 @@ class HealthTelegramBot {
     bot.help(handleHelp);
     bot.command(['ayuda', 'lista', 'comandos', 'help'], handleHelp);
 
+    // Sincronización inteligente preventiva con Google Drive (caché de 60s)
+    const syncIfStale = async () => {
+      try {
+        await driveSync.ensureFreshData();
+      } catch (err) {
+        console.warn('[AutoSync] Error verificando Drive:', err.message);
+      }
+    };
+
     // SYNC DRIVE
     const handleSync = async (ctx) => {
       sendTyping(ctx);
       await ctx.reply('🔄 Conectando con Google Drive para sincronizar archivos nuevos...');
-      const res = await driveSync.syncAll();
+      const res = await driveSync.ensureFreshData(true);
       if (res.success) {
         await ctx.replyWithMarkdown(`✅ *Sincronización Exitosa!*\n• Archivos descargados o actualizados: *${res.syncedCount}*.`);
       } else {
@@ -229,28 +244,10 @@ class HealthTelegramBot {
 
     // COMODORMI
     const handleSleep = async (ctx) => {
+      await syncIfStale();
       let sleep = sleepEngine.getLatestNight();
       let prevSleep = sleepEngine.getPreviousNight();
       let historyStats = sleepEngine.getSleepHistoryStats();
-
-      // Si los datos tienen más de 18 horas de antigüedad, intentamos un sync rápido de Drive primero
-      if (sleep) {
-        try {
-          const endTs = new Date(sleep.endTime.replace(/\./g, '-')).getTime();
-          const diffHours = (Date.now() - endTs) / (1000 * 60 * 60);
-          if (diffHours > 18) {
-            console.log(`[handleSleep] Registro anterior a 18h (${sleep.date}). Intentando sync de Drive...`);
-            const syncRes = await driveSync.syncAll();
-            if (syncRes.success && syncRes.syncedCount > 0) {
-              sleep = sleepEngine.getLatestNight();
-              prevSleep = sleepEngine.getPreviousNight();
-              historyStats = sleepEngine.getSleepHistoryStats();
-            }
-          }
-        } catch (syncErr) {
-          console.warn('[handleSleep] Sync previo falló:', syncErr.message);
-        }
-      }
 
       if (!sleep) {
         return ctx.replyWithMarkdown('❌ No se encontraron registros de sueño en la carpeta. Usa /sync o envía un CSV.');
@@ -271,6 +268,7 @@ class HealthTelegramBot {
 
     // PRESCRIPCION DIARIA DE ENTRENAMIENTO
     const handlePrescription = async (ctx) => {
+      await syncIfStale();
       const prescription = crossAnalytics.getDailyPrescription();
       await executeWithAiFeedback(ctx, 'Calculando tu prescripción deportiva...', async () => {
         try {
@@ -289,6 +287,7 @@ class HealthTelegramBot {
 
     // SISTEMA AUTONOMO & TONO VAGAL
     const handleAutonomic = async (ctx) => {
+      await syncIfStale();
       const ans = crossAnalytics.getAutonomicBalance();
       await executeWithAiFeedback(ctx, 'Evaluando sistema autónomo y tono vagal...', async () => {
         try {
@@ -308,6 +307,7 @@ class HealthTelegramBot {
 
     // EDAD BIOLOGICA & LONGEVIDAD
     const handleBiologicalAge = async (ctx) => {
+      await syncIfStale();
       const bio = crossAnalytics.getBiologicalFitnessAge();
       await executeWithAiFeedback(ctx, 'Calculando edad biológica y longevidad...', async () => {
         try {
@@ -327,6 +327,7 @@ class HealthTelegramBot {
     // CARGA DE ENTRENAMIENTO ACWR
     const handleAcwr = async (ctx) => {
       sendTyping(ctx);
+      await syncIfStale();
       const acwr = crossAnalytics.calculateACWR();
       const msg = formatters.formatAcwrReport(acwr);
       await sendSafeMessage(ctx, msg);
@@ -344,6 +345,7 @@ class HealthTelegramBot {
       }
 
       await executeWithAiFeedback(ctx, 'Consultando a tu Coach IA...', async () => {
+        await syncIfStale();
         const snapshot = {
           ultimoSueno: sleepEngine.getLatestNight(),
           ultimoPulso: heartEngine.getLatestDayStats(),
@@ -368,6 +370,7 @@ class HealthTelegramBot {
 
     // ACTIVIDAD / ENTRENAMIENTO
     const handleWorkout = async (ctx) => {
+      await syncIfStale();
       const workout = workoutEngine.getLatestWorkout();
       if (!workout) {
         return ctx.replyWithMarkdown('❌ No se encontraron actividades en la carpeta de Actividades.');
@@ -389,6 +392,7 @@ class HealthTelegramBot {
 
     // RECUPERACION ENTRENO
     bot.command('recuperacion_entreno', async (ctx) => {
+      await syncIfStale();
       const workout = workoutEngine.getLatestWorkout();
       if (!workout) return ctx.replyWithMarkdown('❌ No hay entrenamientos registrados.');
       let t = `🔋 *ESTADO DE RECUPERACIÓN BIOLÓGICA*\n\n` +
@@ -404,6 +408,7 @@ class HealthTelegramBot {
 
     // HISTORIAL DE ACTIVIDADES
     bot.command('historial_actividades', async (ctx) => {
+      await syncIfStale();
       const history = workoutEngine.getWorkoutHistory(5);
       if (history.length === 0) return ctx.replyWithMarkdown('❌ Sin historial de actividades.');
       let t = `🏃 *HISTORIAL DE ENTRENAMIENTOS RECIENTES*\n\n`;
@@ -417,6 +422,7 @@ class HealthTelegramBot {
 
     // FASES
     bot.command('fases', async (ctx) => {
+      await syncIfStale();
       const sleep = sleepEngine.getLatestNight();
       if (!sleep) return ctx.replyWithMarkdown('❌ Sin datos de sueño.');
       const msgText = formatters.formatSleepSummary(sleep, '');
@@ -425,6 +431,7 @@ class HealthTelegramBot {
 
     // CICLOS
     bot.command('ciclos', async (ctx) => {
+      await syncIfStale();
       const sleep = sleepEngine.getLatestNight();
       if (!sleep) return ctx.replyWithMarkdown('❌ Sin datos de sueño.');
       let t = `🔄 *ANÁLISIS DE CICLOS ULTRADIANOS*\n\n` +
@@ -436,6 +443,7 @@ class HealthTelegramBot {
 
     // EFICIENCIA
     bot.command('eficiencia', async (ctx) => {
+      await syncIfStale();
       const sleep = sleepEngine.getLatestNight();
       if (!sleep) return ctx.replyWithMarkdown('❌ Sin datos de sueño.');
       let t = `⏱️ *EFICIENCIA DEL SUEÑO — ${sleep.date}*\n\n` +
@@ -448,6 +456,7 @@ class HealthTelegramBot {
 
     // DEUDA DE SUEÑO
     bot.command('deuda_sueno', async (ctx) => {
+      await syncIfStale();
       const debt = sleepEngine.calculateSleepDebt(config.USER_GOALS.sleepHours);
       let t = `📉 *DEUDA ACUMULADA DE SUEÑO (Últimos 7 días)*\n\n` +
         `• *Meta diaria:* ${debt.targetHoursPerDay}h | *Promedio real:* *${debt.avgDailySleepHours}h*\n` +
@@ -460,6 +469,7 @@ class HealthTelegramBot {
 
     // CRONOTIPO
     bot.command('cronotipo', async (ctx) => {
+      await syncIfStale();
       const chrono = sleepEngine.determineChronotype();
       let t = `🕰️ *PERFIL CIRCADIANO Y CRONOTIPO*\n\n` +
         `• *Clasificación estimada:* *${chrono.chronotype}*\n` +
@@ -468,8 +478,9 @@ class HealthTelegramBot {
       await sendSafeMessage(ctx, t);
     });
 
-    // APNEA & OXIGENO
+    // APNEA & OXIGENO NOCTURNO
     bot.command('apnea_oxigeno', async (ctx) => {
+      await syncIfStale();
       const sleep = sleepEngine.getLatestNight();
       const corr = oxygenEngine.correlateWithSleep(sleep);
       if (!corr) return ctx.replyWithMarkdown('❌ No se encontraron datos de oxígeno para la última noche.');
@@ -482,8 +493,23 @@ class HealthTelegramBot {
       await sendSafeMessage(ctx, t);
     });
 
+    // OXIGENO / SPO2 DIARIO
+    const handleOxygen = async (ctx) => {
+      await syncIfStale();
+      const ox = oxygenEngine.getLatestDayStats();
+      if (!ox) return ctx.replyWithMarkdown('❌ No hay datos de saturación de oxígeno (SpO2) registrados en la carpeta.');
+      const msg = formatters.formatOxygenReport(ox);
+      await sendSafeMessage(ctx, msg);
+    };
+    bot.command(['oxigeno', 'spo2'], handleOxygen);
+    bot.action('btn_oxigeno', async (ctx) => {
+      await ctx.answerCbQuery().catch(() => {});
+      await handleOxygen(ctx);
+    });
+
     // READINESS / BATERIA
     const handleReadiness = async (ctx) => {
+      await syncIfStale();
       const readiness = readinessEngine.calculateReadiness();
       await executeWithAiFeedback(ctx, 'Evaluando tu Batería Corporal y Readiness...', async () => {
         try {
@@ -502,6 +528,7 @@ class HealthTelegramBot {
 
     // CORAZON
     const handleHeart = async (ctx) => {
+      await syncIfStale();
       const heart = heartEngine.getLatestDayStats();
       const rhrTrend = heartEngine.getRhrTrend();
       const spikes = heartEngine.detectStressSpikes(heart ? heart.date : '');
@@ -522,6 +549,7 @@ class HealthTelegramBot {
 
     // FRECUENCIA REPOSO
     bot.command('frecuencia_reposo', async (ctx) => {
+      await syncIfStale();
       const trend = heartEngine.getRhrTrend();
       let t = `🛌 *FRECUENCIA CARDÍACA EN REPOSO (RHR)*\n\n` +
         `• *RHR Último Registro:* *${trend.latestRhr} bpm*\n` +
@@ -536,6 +564,7 @@ class HealthTelegramBot {
 
     // ZONAS
     bot.command('zonas', async (ctx) => {
+      await syncIfStale();
       const heart = heartEngine.getLatestDayStats();
       if (!heart) return ctx.replyWithMarkdown('❌ No hay datos de corazón.');
       const msgText = formatters.formatHeartReport(heart, heartEngine.getRhrTrend(), '');
@@ -544,6 +573,7 @@ class HealthTelegramBot {
 
     // PICOS DE ESTRES
     bot.command('picos_estres', async (ctx) => {
+      await syncIfStale();
       const days = heartEngine.getDaysList();
       const latestDay = days.length > 0 ? days[days.length - 1] : '';
       const spikes = heartEngine.detectStressSpikes(latestDay);
@@ -562,6 +592,7 @@ class HealthTelegramBot {
 
     // PASOS
     const handleSteps = async (ctx) => {
+      await syncIfStale();
       const act = activityEngine.getLatestDayStats();
       const msg = formatters.formatStepsReport(act);
       await sendSafeMessage(ctx, msg);
@@ -571,6 +602,7 @@ class HealthTelegramBot {
     // PESO Y COMPOSICION CORPORAL
     const handleWeight = async (ctx) => {
       sendTyping(ctx);
+      await syncIfStale();
       const records = dataLoader.loadWeightRecords();
       const latest = records.length > 0 ? records[records.length - 1] : null;
       const msg = formatters.formatWeightReport(latest);
@@ -585,6 +617,7 @@ class HealthTelegramBot {
 
     // SEDENTARISMO
     bot.command('sedentarismo', async (ctx) => {
+      await syncIfStale();
       const act = activityEngine.getLatestDayStats();
       if (!act) return ctx.replyWithMarkdown('❌ Sin datos de pasos.');
       let t = `🪑 *ANÁLISIS DE SEDENTARISMO DIURNO (${act.date})*\n\n` +
@@ -597,6 +630,7 @@ class HealthTelegramBot {
     // HOY
     bot.command('hoy', async (ctx) => {
       sendTyping(ctx);
+      await syncIfStale();
       const sleep = sleepEngine.getLatestNight();
       const heart = heartEngine.getLatestDayStats();
       const act = activityEngine.getLatestDayStats();
@@ -619,6 +653,7 @@ class HealthTelegramBot {
 
     // SEMANAL
     bot.command('semanal', async (ctx) => {
+      await syncIfStale();
       const rhrTrend = heartEngine.getRhrTrend();
       const stepSummary = activityEngine.getWeeklySummary();
       const sleepDebt = sleepEngine.calculateSleepDebt(8.0);

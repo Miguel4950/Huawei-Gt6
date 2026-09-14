@@ -8,12 +8,14 @@ class DriveSync {
     this.drive = null;
     this.isInitialized = false;
     this.rootFolderId = config.GOOGLE_DRIVE_FOLDER_ID;
+    this.lastSyncTime = 0;
+    this.currentSyncPromise = null;
   }
 
   init() {
     if (this.isInitialized) return true;
     if (!fs.existsSync(config.KEY_FILE_PATH)) {
-      console.warn('[DriveSync] No existe vertex_key.json, sincronización de Drive omitida.');
+      console.warn(`[DriveSync] No existe vertex_key.json en ${config.KEY_FILE_PATH}, sincronización de Drive omitida.`);
       return false;
     }
 
@@ -32,7 +34,8 @@ class DriveSync {
   }
 
   async downloadFileStream(fileId, destPath) {
-    const fileStream = fs.createWriteStream(destPath);
+    const tempPath = `${destPath}.tmp_${Date.now()}`;
+    const fileStream = fs.createWriteStream(tempPath);
     const downloadRes = await this.drive.files.get(
       { fileId, alt: 'media', supportsAllDrives: true },
       { responseType: 'stream' }
@@ -40,24 +43,84 @@ class DriveSync {
     return new Promise((resolve, reject) => {
       downloadRes.data
         .pipe(fileStream)
-        .on('finish', resolve)
-        .on('error', reject);
+        .on('finish', () => {
+          try {
+            if (fs.existsSync(destPath)) {
+              fs.unlinkSync(destPath);
+            }
+            fs.renameSync(tempPath, destPath);
+            resolve();
+          } catch (renameErr) {
+            try {
+              fs.copyFileSync(tempPath, destPath);
+              fs.unlinkSync(tempPath);
+              resolve();
+            } catch (copyErr) {
+              reject(copyErr);
+            }
+          }
+        })
+        .on('error', (err) => {
+          if (fs.existsSync(tempPath)) {
+            try { fs.unlinkSync(tempPath); } catch (e) {}
+          }
+          reject(err);
+        });
     });
   }
 
   getTargetSubfolderForFile(fileName) {
     const lower = fileName.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    if (lower.includes('sueno')) return 'Health Sync Sueño';
-    if (lower.includes('frecuencia') || lower.includes('cardiaca')) return 'Health Sync Frecuencia cardíaca';
-    if (lower.includes('paso')) return 'Health Sync Pasos';
-    if (lower.includes('actividad') || lower.includes('ejercicio')) return 'Health Sync Actividades';
-    if (lower.includes('oxigeno') || lower.includes('saturacion')) return 'Health Sync Saturación de oxígeno';
-    if (lower.includes('peso')) return 'Health Sync Peso';
+    const ext = path.extname(fileName).toLowerCase();
+
+    // Detección exhaustiva de actividades / entrenamientos / deportes
+    if (
+      lower.includes('actividad') || 
+      lower.includes('ejercicio') || 
+      lower.includes('walking') || 
+      lower.includes('caminata') || 
+      lower.includes('paseo') ||
+      lower.includes('running') || 
+      lower.includes('carrera') || 
+      lower.includes('cycling') || 
+      lower.includes('ciclismo') || 
+      lower.includes('bici') || 
+      lower.includes('swimming') || 
+      lower.includes('natacion') || 
+      lower.includes('generic') || 
+      lower.includes('workout') || 
+      lower.includes('entrenamiento') || 
+      lower.includes('deporte') ||
+      ['.tcx', '.fit', '.gpx', '.kml'].includes(ext)
+    ) {
+      return 'Health Sync Actividades';
+    }
+
+    if (lower.includes('sueno') || lower.includes('sleep')) return 'Health Sync Sueño';
+    if (lower.includes('frecuencia') || lower.includes('cardiaca') || lower.includes('heart') || lower.includes('pulso')) return 'Health Sync Frecuencia cardíaca';
+    if (lower.includes('paso') || lower.includes('step')) return 'Health Sync Pasos';
+    if (lower.includes('oxigeno') || lower.includes('saturacion') || lower.includes('spo2') || lower.includes('oxygen')) return 'Health Sync Saturación de oxígeno';
+    if (lower.includes('peso') || lower.includes('weight') || lower.includes('composicion') || lower.includes('grasa')) return 'Health Sync Peso';
     return null;
   }
 
   sanitizeFileName(name) {
     return name.replace(/[<>:"/\\|?*]/g, '_');
+  }
+
+  async ensureFreshData(force = false) {
+    const now = Date.now();
+    const THROTTLE_MS = 60 * 1000; // 60 segundos de validez antes de consultar Drive de nuevo
+    if (!force && (now - this.lastSyncTime < THROTTLE_MS)) {
+      return { success: true, cached: true, syncedCount: 0 };
+    }
+    if (this.currentSyncPromise) {
+      return this.currentSyncPromise;
+    }
+    this.currentSyncPromise = this.syncAll().finally(() => {
+      this.currentSyncPromise = null;
+    });
+    return this.currentSyncPromise;
   }
 
   async syncAll() {
@@ -80,7 +143,9 @@ class DriveSync {
         const lower = f.name.toLowerCase();
         return lower.includes('health') || lower.includes('sync') || lower.includes('sueño') ||
                lower.includes('sueno') || lower.includes('frecuencia') || lower.includes('paso') ||
-               lower.includes('oxigeno') || lower.includes('actividad') || lower.includes('peso');
+               lower.includes('oxigeno') || lower.includes('actividad') || lower.includes('peso') ||
+               lower.includes('walking') || lower.includes('caminata') || lower.includes('ejercicio') ||
+               lower.includes('entrenamiento') || lower.includes('deporte') || lower.includes('huawei');
       });
 
       // Si además existe rootFolderId específico y no está en la lista, comprobarlo
@@ -138,7 +203,12 @@ class DriveSync {
           }
 
           const safeName = this.sanitizeFileName(f.name);
-          const destPath = path.join(localTargetDir, safeName);
+          const targetSub = this.getTargetSubfolderForFile(f.name) || folderName;
+          const fileTargetDir = path.join(config.HEALTH_DATA_DIR, targetSub);
+          if (!fs.existsSync(fileTargetDir)) {
+            fs.mkdirSync(fileTargetDir, { recursive: true });
+          }
+          const destPath = path.join(fileTargetDir, safeName);
           const remoteSize = parseInt(f.size, 10);
           const remoteTime = f.modifiedTime ? new Date(f.modifiedTime).getTime() : 0;
           let shouldDownload = false;
@@ -168,6 +238,7 @@ class DriveSync {
         }
       }
 
+      this.lastSyncTime = Date.now();
       return {
         success: true,
         syncedCount,

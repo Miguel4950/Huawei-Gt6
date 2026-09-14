@@ -1,5 +1,19 @@
 const dataLoader = require('../data/dataLoader');
 
+function formatActivityType(rawType) {
+  if (!rawType || rawType === 'null' || rawType === 'GENERIC') return 'Actividad General / Libre';
+  const norm = rawType.toUpperCase().trim();
+  if (norm === 'WALKING' || norm === 'OUTDOOR_WALKING') return 'Caminata';
+  if (norm === 'RUNNING' || norm === 'OUTDOOR_RUNNING') return 'Carrera / Trote';
+  if (norm === 'CYCLING' || norm === 'OUTDOOR_CYCLING') return 'Ciclismo';
+  if (norm === 'SWIMMING') return 'Natación';
+  if (norm === 'STRENGTH_TRAINING' || norm === 'WEIGHTS') return 'Entrenamiento de Fuerza';
+  if (norm === 'ELLIPTICAL') return 'Elíptica';
+  if (norm === 'ROWING') return 'Remo';
+  if (norm === 'YOGA' || norm === 'PILATES') return 'Movilidad / Yoga';
+  return rawType.charAt(0).toUpperCase() + rawType.slice(1).toLowerCase();
+}
+
 class WorkoutEngine {
   getAllWorkouts() {
     return dataLoader.loadActivityRecords();
@@ -19,28 +33,38 @@ class WorkoutEngine {
 
     const avgHr = w.avgHr || 0;
     const maxHr = w.maxHr || 0;
+    const distanceKm = w.distanceKm || 0;
 
-    let intensity = 'Baja';
-    let recoveryHours = 12;
-    let trainingLoad = Math.round((durationMinutes * (avgHr / 100)) * 1.2);
+    let paceFormatted = null;
+    if (distanceKm > 0.1 && durationMinutes > 0) {
+      const paceDecimal = durationMinutes / distanceKm;
+      const paceMin = Math.floor(paceDecimal);
+      const paceSec = Math.round((paceDecimal - paceMin) * 60);
+      paceFormatted = `${paceMin}'${String(paceSec).padStart(2, '0')}" /km`;
+    }
+
+    // Calibración de intensidad y recuperación para Miguel (20 años, perfil sedentario)
+    let intensity = 'Muy Ligera';
+    let recoveryHours = 4;
+    let trainingLoad = Math.round((durationMinutes * (avgHr / 100)) * 1.0);
 
     if (maxHr >= 170 || (avgHr >= 155 && durationMinutes >= 45)) {
       intensity = 'Muy Alta';
-      recoveryHours = 48;
-    } else if (maxHr >= 155 || (avgHr >= 140 && durationMinutes >= 30)) {
-      intensity = 'Alta';
       recoveryHours = 36;
-    } else if (maxHr >= 135 || durationMinutes >= 25) {
-      intensity = 'Moderada';
+    } else if (maxHr >= 150 || (avgHr >= 135 && durationMinutes >= 35)) {
+      intensity = 'Alta';
       recoveryHours = 24;
-    } else if (maxHr >= 115 || durationMinutes >= 15) {
-      intensity = 'Baja';
-      recoveryHours = 16;
+    } else if (maxHr >= 125 || (avgHr >= 110 && durationMinutes >= 25)) {
+      intensity = 'Moderada';
+      recoveryHours = 12;
+    } else if (maxHr >= 100 || durationMinutes >= 30) {
+      intensity = 'Ligera / Activa';
+      recoveryHours = 8;
     }
 
     let hoursAgo = null;
     let hoursRemaining = recoveryHours;
-    let recoveryStatus = 'En Recuperación Activa';
+    let recoveryStatus = '🟢 Recuperado — Listo para moverse';
 
     if (w.datetime) {
       try {
@@ -51,7 +75,7 @@ class WorkoutEngine {
         if (hoursAgo >= 0) {
           hoursRemaining = Math.max(0, parseFloat((recoveryHours - hoursAgo).toFixed(1)));
           if (hoursRemaining === 0) {
-            recoveryStatus = '🟢 100% Recuperado — Listo para entrenar';
+            recoveryStatus = '🟢 100% Recuperado — Listo para activarte';
           } else {
             recoveryStatus = `🟡 En Recuperación — Faltan ${hoursRemaining}h para descanso total`;
           }
@@ -60,12 +84,14 @@ class WorkoutEngine {
     }
 
     return {
-      type: w.type === 'null' || !w.type ? 'Actividad General' : w.type,
+      type: formatActivityType(w.type),
+      rawType: w.type,
       datetime: w.datetime,
       durationMinutes,
       activeSeconds: w.activeSeconds,
       elapsedSeconds: w.elapsedSeconds,
-      distanceKm: w.distanceKm,
+      distanceKm,
+      paceFormatted,
       calories: w.calories,
       avgHr,
       maxHr,
