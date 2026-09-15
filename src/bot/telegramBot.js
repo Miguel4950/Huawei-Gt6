@@ -16,6 +16,9 @@ const prompts = require('../ai/prompts');
 const formatters = require('./formatters');
 const driveSync = require('../drive/driveSync');
 const dataLoader = require('../data/dataLoader');
+const huaweiClient = require('../huawei/huaweiClient');
+const huaweiSync = require('../huawei/huaweiSync');
+const webDashboard = require('../server/webDashboard');
 
 class HealthTelegramBot {
   constructor(token = config.TELEGRAM_TOKEN) {
@@ -68,10 +71,11 @@ class HealthTelegramBot {
         Markup.button.callback('📊 Fases de Sueño', 'btn_fases')
       ],
       [
-        Markup.button.callback('🔄 Sincronizar Drive', 'btn_sync'),
-        Markup.button.callback('💰 Tokens & Costo', 'btn_presupuesto')
+        Markup.button.callback('☁️ Huawei Cloud', 'btn_huawei'),
+        Markup.button.callback('🔄 Sincronizar Drive', 'btn_sync')
       ],
       [
+        Markup.button.callback('💰 Tokens & Costo', 'btn_presupuesto'),
         Markup.button.callback('📋 Ver Lista (/lista)', 'btn_lista')
       ]
     ]);
@@ -82,6 +86,8 @@ class HealthTelegramBot {
       await this.bot.telegram.setMyCommands([
         { command: 'menu', description: '📱 Menú interactivo con botones táctiles' },
         { command: 'lista', description: '📋 Lista completa y guía de todos los comandos' },
+        { command: 'huawei', description: '☁️ Estado y configuración de Huawei Cloud' },
+        { command: 'huawei_sync', description: '⚡ Sincronizar directamente con Huawei Cloud' },
         { command: 'actividad', description: '🏃 Última caminata/entrenamiento con GPS y ritmo' },
         { command: 'comodormi', description: '🌙 Diagnóstico de sueño (anoche + semana + mes)' },
         { command: 'hoy', description: '📊 Tablero biométrico 360° en tiempo real' },
@@ -220,14 +226,55 @@ class HealthTelegramBot {
     bot.help(handleHelp);
     bot.command(['ayuda', 'lista', 'comandos', 'help'], handleHelp);
 
-    // Sincronización inteligente preventiva con Google Drive (caché de 60s)
+    // Sincronización inteligente preventiva (Huawei Cloud + Google Drive con caché de 60s)
     const syncIfStale = async () => {
       try {
+        const hwStatus = huaweiClient.getConnectionStatus();
+        if (hwStatus.isConnected) {
+          await huaweiSync.ensureFreshData();
+        }
         await driveSync.ensureFreshData();
       } catch (err) {
-        console.warn('[AutoSync] Error verificando Drive:', err.message);
+        console.warn('[AutoSync] Error en sincronización preventiva:', err.message);
       }
     };
+
+    // HUAWEI CLOUD STATUS & PORTAL
+    const handleHuawei = async (ctx) => {
+      const status = huaweiClient.getConnectionStatus();
+      const serverUrl = process.env.RENDER_EXTERNAL_URL || 'https://huawei-gt6.onrender.com';
+
+      let t = `☁️ *CONEXIÓN DIRECTA CON HUAWEI HEALTH CLOUD*\n\n` +
+        `• *Estado:* ${status.isConnected ? '🟢 *Conectado & Activo*' : '🔴 *No conectado*'}\n` +
+        `• *Tokens de acceso:* ${status.isConnected ? `Válidos (se auto-refrescan)` : 'Pendiente de autorizar'}\n` +
+        `• *Client ID:* \`${status.clientId || 'No configurado'}\`\n\n` +
+        `🌐 *Portal Web de Configuración y Permisos:*\n` +
+        `${serverUrl}\n\n` +
+        `💡 *Para conectar sin tablet:* Abre el portal web en tu móvil o PC, ingresa tus credenciales y pulsa "Iniciar Sesión con Huawei ID".\n` +
+        `Para forzar una descarga inmediata de tus datos, usa /huawei_sync.`;
+
+      await sendSafeMessage(ctx, t);
+    };
+    bot.command('huawei', handleHuawei);
+
+    // HUAWEI SYNC
+    const handleHuaweiSync = async (ctx) => {
+      sendTyping(ctx);
+      await ctx.reply('🔄 Conectando directamente con la nube de Huawei Health...');
+      const res = await huaweiSync.syncAll(7);
+      if (res.success) {
+        let t = `✅ *¡Sincronización con Huawei Cloud Exitosa!*\n\n` +
+          `• *Entrenamientos y caminatas:* ${res.summary.workouts}\n` +
+          `• *Sesiones de sueño:* ${res.summary.sleepSessions}\n` +
+          `• *Total registros importados:* *${res.syncedCount}*.\n\n` +
+          `Tus datos ya están procesados y listos. Usa /actividad o /comodormi para analizarlos.`;
+        await ctx.replyWithMarkdown(t);
+      } else {
+        const serverUrl = process.env.RENDER_EXTERNAL_URL || 'https://huawei-gt6.onrender.com';
+        await ctx.replyWithMarkdown(`❌ *No se pudo sincronizar:* ${res.message}\n\nAbre la interfaz web para enlazar tu cuenta: ${serverUrl}`);
+      }
+    };
+    bot.command('huawei_sync', handleHuaweiSync);
 
     // SYNC DRIVE
     const handleSync = async (ctx) => {
@@ -834,6 +881,10 @@ class HealthTelegramBot {
       ctx.message = { text: '/semanal' };
       bot.handleUpdate({ message: { chat: ctx.chat, text: '/semanal' } });
     });
+    bot.action('btn_huawei', async (ctx) => {
+      await ctx.answerCbQuery().catch(() => {});
+      await handleHuawei(ctx);
+    });
     bot.action('btn_sync', async (ctx) => {
       await ctx.answerCbQuery().catch(() => {});
       await handleSync(ctx);
@@ -895,25 +946,11 @@ class HealthTelegramBot {
     this.setupRoutes();
     const port = process.env.PORT || 8080;
 
-    // Start HTTP healthcheck server
-    this.server = http.createServer((req, res) => {
-      if (req.url === '/health' || req.url === '/') {
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({
-          status: 'online',
-          bot: '@AnalistaBotMiguelAcuBot',
-          model: config.MODEL_ID,
-          timestamp: new Date().toISOString(),
-          budget: geminiCoach.getCostSummary()
-        }));
-      } else {
-        res.writeHead(404);
-        res.end();
-      }
-    });
+    // Start HTTP Web Dashboard & Healthcheck server
+    this.server = webDashboard.createDashboardServer();
 
     this.server.listen(port, () => {
-      console.log(`[HTTP Healthcheck] Servidor de salud activo en puerto ${port} (/health)`);
+      console.log(`[HTTP Server] Web Dashboard y Healthcheck activos en puerto ${port} (/ y /health)`);
     });
 
     // Launch Telegram Bot
