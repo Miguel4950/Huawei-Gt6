@@ -50,12 +50,6 @@ module.exports = {
   THINKING_LEVEL: process.env.THINKING_LEVEL || 'LOW', // LOW or MEDIUM for strict budget preservation
   TELEGRAM_TOKEN: process.env.TELEGRAM_BOT_TOKEN || '',
   GOOGLE_DRIVE_FOLDER_ID: process.env.GOOGLE_DRIVE_FOLDER_ID || '12F-KkQbmeeJ1wm5p1XrBIBzbl8zqqF3G',
-  // Huawei Health Kit Cloud configuration
-  HUAWEI_CLIENT_ID: process.env.HUAWEI_CLIENT_ID || '',
-  HUAWEI_CLIENT_SECRET: process.env.HUAWEI_CLIENT_SECRET || '',
-  HUAWEI_REDIRECT_URI: process.env.HUAWEI_REDIRECT_URI || (process.env.RENDER_EXTERNAL_URL ? `${process.env.RENDER_EXTERNAL_URL}/auth/huawei/callback` : 'https://huawei-gt6.onrender.com/auth/huawei/callback'),
-  HUAWEI_TOKENS_PATH: path.join(ROOT_DIR, 'data', 'huawei_tokens.json'),
-  HUAWEI_CREDS_PATH: path.join(ROOT_DIR, 'data', 'huawei_creds.json'),
   USER_GOALS: {
     dailySteps: parseInt(process.env.GOAL_STEPS || '10000', 10),
     sleepHours: parseFloat(process.env.GOAL_SLEEP_HOURS || '8.0'),
